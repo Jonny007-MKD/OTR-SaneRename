@@ -1,7 +1,8 @@
-OTR-SaneRename
-==============
+OTR-SaneRenamix
+===============
 
 Benenne Serien mit OnlineTVrecorder Zeitstempeln nach Standard-Benennungen um.
+Dies ist ein Linux-Bash-Fork von OTR-SaneRename von gersilex.
 
 Hallo liebe Freunde,
 

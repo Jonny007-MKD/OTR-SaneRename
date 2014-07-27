@@ -1,30 +1,74 @@
-# TODO: Umlaute werden beim Download der xml Ïber alle serien nicht richtig Ïbergeben. evtl mit %-Code arbeiten
+# TODO: Umlaute werden beim Download der xml über alle serien nicht richtig übergeben. evtl mit %-Code arbeiten
 
-lang=de
-
+### CONFIG ###
 apikey="2C9BB45EFB08AD3B"
 productname="SaneRename for OTR (ALPHA) v0.2"
 
-echo " :: $productname"
-echo " :: by Leroy Foerster"
-echo
+function eecho {
+	if [ -z "$silent" ]; then
+		echo "$1" "$2" "$3"
+	fi
+}
 
 
-if [ $# -ne 1 ]; then
-	echo "Usage: $0 pathToAvi"
-	exit 1
+### Check input ###
+while getopts "f:l:s" optval; do
+	case $optval in
+		"f")
+			path=$OPTARG;;
+		"s")
+			silent=1;;
+		"l")
+			lang="$OPTARG";;
+		"?")
+			echo "Usage: $0 -f pathToAvi [-s] [-l LANG]";;
+		":")
+			echo "No argument value for option $OPTARG";;
+	esac
+done
+
+eecho " :: $productname"
+eecho " :: by Leroy Foerster"
+eecho
+
+
+if [ -z "$path" ]; then
+	echo "Usage: $0 -f pathToAvi [-s] [-l LANG]"
 fi
+
+case "$lang" in
+	de*)
+		lang="de";;
+	en*)
+		lang="en";;
+	us*)
+		lang="en";;
+	fr*)
+		lang="fr";;
+	"")
+		lang="de";;
+	*)
+		echo "Language not recognized: $lang"
+		exit 11;;
+esac
 
 PWD=$(readlink -e $0)
 PWD=$(dirname $PWD)
 
-path=$1
-filename="$(basename $path)"
-filesuffix="${filename##*.}"
+file_name="$(basename $path)"
+file_suffix="${file_name##*.}"
+file_dir="$(dirname $path)"
+
+if [ ! -f "$path" ]; then
+	echo "This is no file!"
+	echo "$path"
+	exit 10
+fi
+
 
 # Split filename into fields, divided by _ (underscores)
 
-fields="${filename//_/ }"
+fields="${file_name//_/ }"
 
 # If first field is a number (cutlist id)
 firstField="${fields%% *}"
@@ -55,23 +99,23 @@ if [ "$lang" == "de" ]; then
 fi
 
 
-echo -e "    Work dir:\t$PWD"
-echo -e "    Datum:\t$fieldsDateInv"
-echo -e "    Uhrzeit:\t$fieldsTime"
-echo -e "    Titel:\t$fieldsTitle"
+eecho -e "    Work dir:\t$PWD"
+eecho -e "    Datum:\t$fieldsDateInv"
+eecho -e "    Uhrzeit:\t$fieldsTime"
+eecho -e "    Titel:\t$fieldsTitle"
 
 # ------------ Series ID abrufen anhand vom Titel der Serie -------------------- ;;
 series_db="https://www.thetvdb.com/api/GetSeries.php?seriesname=$fieldsTitle&language=$lang"
 wget "$series_db" -O "$PWD/series.xml" -o /dev/null
 error=$?
 if [ $error -ne 0 ]; then
-	echo "Downloading $series_db failed (Exit code: $error)!"
+	eecho "Downloading $series_db failed (Exit code: $error)!"
 	exit 2
 fi
 
 series_id=$(grep -m 1 "seriesid" $PWD/series.xml)			# Get series id (needed later)
 if [ -z "$series_id" ]; then
-	echo -e "    TVDB:\tSeries NOT found!"
+	eecho -e "    TVDB:\tSeries NOT found!"
 	exit 3
 fi
 
@@ -84,10 +128,10 @@ series_title=${series_title#*>}
 series_alias=${series_alias%<*}
 series_alias=${series_alias#*>}
 
-echo -e "    TVDB:\tSeries found.\tID:    $series_id"
-echo -e "\t\t\t\tName:  $series_title"
+eecho -e "    TVDB:\tSeries found.\tID:    $series_id"
+eecho -e "\t\t\t\tName:  $series_title"
 if [ -n "$series_alias" ]; then
-	echo -e "\t\t\t\tAlias: $series_alias"
+	eecho -e "\t\t\t\tAlias: $series_alias"
 fi
 
 # ------------ EPG vom jeweiligen Tag herunterladen, durchsuchen anhand der Ausstrahlungszeit ------------- ;;
@@ -98,14 +142,14 @@ if [ ! -f "$PWD/epg-$fieldsDate.csv" ]; then				# didnt cache this file
 	wget "$epg_datei" -O "$PWD/epg-$fieldsDate.csv" -o /dev/null
 	error=$?
 	if [ $error -ne 0 ]; then
-		echo "Downloading $epg_datei failed (Exit code: $error)!"
+		eecho "Downloading $epg_datei failed (Exit code: $error)!"
 		exit 4
 	fi
 fi
 
 epg="$(grep "$series_title" "$PWD/epg-$fieldsDate.csv" | grep "$fieldsTime")"
 if [ -z "$epg" ]; then
-	echo "    EPG:\tSeries not found in EPG data"
+	eecho "    EPG:\tSeries not found in EPG data"
 	exit 5
 fi
 
@@ -119,10 +163,10 @@ IFS=$OLDIFS
 
 episode_title="${epg_text%%.*}"									# Text begins with episode title
 if [ -z "$episode_title" ]; then
-	echo "    EPG:\tNo Episode title found"
+	eecho "    EPG:\tNo Episode title found"
 	exit 5
 fi
-echo -e "    EPG:\tEpisode title:\t$episode_title"
+eecho -e "    EPG:\tEpisode title:\t$episode_title"
 
 
 # Download Episode list of series
@@ -130,7 +174,7 @@ episode_db="https://www.thetvdb.com/api/$apikey/series/$series_id/all/$lang.xml"
 wget $episode_db -O "$PWD/episodes.xml" -o /dev/null
 error=$?
 if [ $error -ne 0 ]; then
-	echo "Downloading $episode_db failed (Exit code: $error)!"
+	eecho "Downloading $episode_db failed (Exit code: $error)!"
 	exit 6
 fi
 
@@ -150,7 +194,7 @@ if [ $episode_season -le 9 ]; then
 	episode_season="0$episode_season"
 fi
 
-echo -e "    TvDB: Season:\t$episode_season"
-echo -e "          Episode:\t$episode_number"
+eecho -e "    TvDB: Season:\t$episode_season"
+eecho -e "          Episode:\t$episode_number"
 
-echo "S${episode_season}E${episode_number}"
+echo "${series_title// /.}..S${episode_season}E${episode_number}..${episode_title// /.}.$file_suffix"

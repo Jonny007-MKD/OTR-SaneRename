@@ -55,8 +55,8 @@ case "$lang" in
 		exit 11;;
 esac
 
-PWD=$(readlink -e $0)
-PWD=$(dirname "$PWD")
+PwD=$(readlink -e $0)
+PwD=$(dirname "$PwD")
 
 file_name="$(basename $path)"
 file_suffix="${file_name##*.}"
@@ -102,28 +102,28 @@ if [ "$lang" == "de" ]; then
 fi
 
 
-eecho -e "    Work dir:\t$PWD"
+eecho -e "    Work dir:\t$PwD"
 eecho -e "    Datum:\t$fieldsDateInv"
 eecho -e "    Uhrzeit:\t$fieldsTime"
 eecho -e "    Titel:\t$fieldsTitle"
 
 # ------------ Series ID abrufen anhand vom Titel der Serie -------------------- ;;
 series_db="https://www.thetvdb.com/api/GetSeries.php?seriesname=$fieldsTitle&language=$lang"
-wget "$series_db" -O "$PWD/series.xml" -o /dev/null
+wget "$series_db" -O "$PwD/series.xml" -o /dev/null
 error=$?
 if [ $error -ne 0 ]; then
 	eecho "Downloading $series_db failed (Exit code: $error)!"
 	exit 2
 fi
 
-series_id=$(grep -m 1 "seriesid" "$PWD/series.xml")			# Get series id (needed later)
+series_id=$(grep -m 1 "seriesid" "$PwD/series.xml")			# Get series id (needed later)
 if [ -z "$series_id" ]; then
 	eecho -e "    TVDB:\tSeries NOT found!"
 	exit 3
 fi
 
-series_title=$(grep -m 1 "SeriesName" "$PWD/series.xml")	# Get series name from TvDB (for user)
-series_alias=$(grep -m 1 "AliasName" "$PWD/series.xml")
+series_title=$(grep -m 1 "SeriesName" "$PwD/series.xml")	# Get series name from TvDB (for user)
+series_alias=$(grep -m 1 "AliasName" "$PwD/series.xml")
 series_id=${series_id%<*}									# Remove XML tags
 series_id=${series_id#*>}
 series_title=${series_title%<*}
@@ -139,10 +139,10 @@ fi
 
 # ------------ EPG vom jeweiligen Tag herunterladen, durchsuchen anhand der Ausstrahlungszeit ------------- ;;
 # Download OTR EPG data and search for series and time
-if [ ! -f "PWD/epg-$fieldsDate.csv" ]; then				# didnt cache this file
-	rm -f ${PWD// /\\ }/epg-*.csv 2> /dev/null
+if [ ! -f "PwD/epg-$fieldsDate.csv" ]; then				# didnt cache this file
+	rm -f ${PwD// /\\ }/epg-*.csv 2> /dev/null
 	epg_datei="https://www.onlinetvrecorder.com/epg/csv/epg_20${fieldsDate//./_}.csv"
-	wget "$epg_datei" -O "$PWD/epg-$fieldsDate.csv" -o /dev/null
+	wget "$epg_datei" -O "$PwD/epg-$fieldsDate.csv" -o /dev/null
 	error=$?
 	if [ $error -ne 0 ]; then
 		eecho "Downloading $epg_datei failed (Exit code: $error)!"
@@ -150,7 +150,7 @@ if [ ! -f "PWD/epg-$fieldsDate.csv" ]; then				# didnt cache this file
 	fi
 fi
 
-epg="$(grep "$series_title" "$PWD/epg-$fieldsDate.csv" | grep "$fieldsTime")"
+epg="$(grep "$series_title" "$PwD/epg-$fieldsDate.csv" | grep "$fieldsTime")"
 if [ -z "$epg" ]; then
 	eecho "    EPG:\tSeries not found in EPG data"
 	exit 5
@@ -174,7 +174,7 @@ eecho -e "    EPG:\tEpisode title:\t$episode_title"
 
 # Download Episode list of series
 episode_db="https://www.thetvdb.com/api/$apikey/series/$series_id/all/$lang.xml"
-wget $episode_db -O "$PWD/episodes.xml" -o /dev/null
+wget $episode_db -O "$PwD/episodes.xml" -o /dev/null
 error=$?
 if [ $error -ne 0 ]; then
 	eecho "Downloading $episode_db failed (Exit code: $error)!"
@@ -182,7 +182,7 @@ if [ $error -ne 0 ]; then
 fi
 
 while true; do
-	episode_info=$(grep "$episode_title" "$PWD/episodes.xml" -B 10)	# Get XML data of episode
+	episode_info=$(grep "$episode_title" "$PwD/episodes.xml" -B 10)	# Get XML data of episode
 	if [ -z "$episode_info" ]; then
 		episode_title=${episode_title% *}
 		eecho -e "    EPG:\tEpisode title:\t$episode_title"

@@ -111,7 +111,6 @@ if [ -f "$PwD/series.cache" ]; then								# Search the series cache
 	series_id=$(grep "$series_title" "$PwD/series.cache");
 fi
 if [ -n "$series_id" ]; then									# And get the TvDB series ID from there
-	echo $series_id
 	series_title=${series_id%|#|*}
 	series_id=${series_id#*|#|}
 	eecho -e "    Cache:\tSeries found.\tID:    $series_id"
@@ -140,6 +139,7 @@ else															# Otherwise ask TvDB whether they do know the series
 	series_alias=${series_alias%<*}
 	series_alias=${series_alias#*>}
 
+	echo "$series_title|#|$series_id" >> "$PwD/series.cache"
 	eecho -e "    TVDB:\tSeries found.\tID:    $series_id"
 fi
 eecho -e "\t\t\t\tName:  $series_title"
@@ -147,17 +147,16 @@ if [ -n "$series_alias" ]; then
 	eecho -e "\t\t\t\tAlias: $series_alias"
 fi
 
-echo "$series_title|#|$series_id" >> "$PwD/series.cache"
 
 # ------------ EPG vom jeweiligen Tag herunterladen, durchsuchen anhand der Ausstrahlungszeit ------------- ;;
 # Download OTR EPG data and search for series and time
-if [ ! -f "PwD/epg-$fieldsDate.csv" ]; then				# didnt cache this file
+if [ ! -f "$PwD/epg-$fieldsDate.csv" ]; then						# didnt cache this file
 	rm -f ${PwD// /\\ }/epg-*.csv 2> /dev/null
-	epg_datei="https://www.onlinetvrecorder.com/epg/csv/epg_20${fieldsDate//./_}.csv"
-	wget "$epg_datei" -O "$PwD/epg-$fieldsDate.csv" -o /dev/null
+	epg_csv="https://www.onlinetvrecorder.com/epg/csv/epg_20${fieldsDate//./_}.csv"
+	wget "$epg_csv" -O "$PwD/epg-$fieldsDate.csv" -o /dev/null
 	error=$?
 	if [ $error -ne 0 ]; then
-		eecho "Downloading $epg_datei failed (Exit code: $error)!"
+		eecho "Downloading $epg_csv failed (Exit code: $error)!"
 		exit 4
 	fi
 fi

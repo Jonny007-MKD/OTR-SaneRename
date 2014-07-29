@@ -56,7 +56,7 @@ case "$lang" in
 esac
 
 PWD=$(readlink -e $0)
-PWD=$(dirname $PWD)
+PWD=$(dirname "$PWD")
 
 file_name="$(basename $path)"
 file_suffix="${file_name##*.}"
@@ -116,14 +116,14 @@ if [ $error -ne 0 ]; then
 	exit 2
 fi
 
-series_id=$(grep -m 1 "seriesid" $PWD/series.xml)			# Get series id (needed later)
+series_id=$(grep -m 1 "seriesid" "$PWD/series.xml")			# Get series id (needed later)
 if [ -z "$series_id" ]; then
 	eecho -e "    TVDB:\tSeries NOT found!"
 	exit 3
 fi
 
-series_title=$(grep -m 1 "SeriesName" $PWD/series.xml)		# Get series name from TvDB (for user)
-series_alias=$(grep -m 1 "AliasName" $PWD/series.xml)
+series_title=$(grep -m 1 "SeriesName" "$PWD/series.xml")	# Get series name from TvDB (for user)
+series_alias=$(grep -m 1 "AliasName" "$PWD/series.xml")
 series_id=${series_id%<*}									# Remove XML tags
 series_id=${series_id#*>}
 series_title=${series_title%<*}
@@ -139,8 +139,8 @@ fi
 
 # ------------ EPG vom jeweiligen Tag herunterladen, durchsuchen anhand der Ausstrahlungszeit ------------- ;;
 # Download OTR EPG data and search for series and time
-if [ ! -f "$PWD/epg-$fieldsDate.csv" ]; then				# didnt cache this file
-	rm -f ${$PWD// /\\ }/epg-*.csv 2> /dev/null
+if [ ! -f "PWD/epg-$fieldsDate.csv" ]; then				# didnt cache this file
+	rm -f ${PWD// /\\ }/epg-*.csv 2> /dev/null
 	epg_datei="https://www.onlinetvrecorder.com/epg/csv/epg_20${fieldsDate//./_}.csv"
 	wget "$epg_datei" -O "$PWD/epg-$fieldsDate.csv" -o /dev/null
 	error=$?

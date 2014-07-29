@@ -180,6 +180,7 @@ function funcGetEpgEpisodeTitle {
 	eecho -e "    EPG:\tEpisode title:\t$episode_title"					# We found some title :)
 }
 
+# Download episodes list from TvDB
 function funcGetEpisodes {
 	# Download Episode list of series
 	episode_db="https://www.thetvdb.com/api/$apikey/series/$series_id/all/$lang.xml"
@@ -191,10 +192,11 @@ function funcGetEpisodes {
 	fi
 }
 
+# Get the information from episodes list of TvDB
 function funcGetEpisodeInfo {
 	while true; do
 		episode_info=$(grep "Name>$episode_title" "$PwD/episodes.xml" -B 10)	# Get XML data of episode
-		if [ -z "$episode_info" ]; then									# Nothing found. Shorten the title
+		if [ -z "$episode_info" ]; then											# Nothing found. Shorten the title
 			tmp=${episode_title% *}
 			if [ ${#episode_title} -le 4 ] || [ "$tmp" == "$episode_title" ]; then
 				break;
@@ -236,6 +238,7 @@ function funcGetEpisodeInfo {
 }
 
 
+# This function does everything
 function doIt {	
 	funcHeader
 

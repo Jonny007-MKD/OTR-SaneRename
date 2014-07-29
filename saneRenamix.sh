@@ -108,7 +108,7 @@ eecho -e "    Uhrzeit:\t$fieldsTime"
 eecho -e "    Titel:\t$fieldsTitle"
 
 if [ -f "$PwD/series.cache" ]; then								# Search the series cache
-	series_id=$(grep "$series_title" "$PwD/series.cache");
+	series_id=$(grep "fieldsTitle" "$PwD/series.cache");
 fi
 if [ -n "$series_id" ]; then									# And get the TvDB series ID from there
 	series_title=${series_id%|#|*}
@@ -193,9 +193,12 @@ if [ $error -ne 0 ]; then
 fi
 
 while true; do
-	episode_info=$(grep "$episode_title" "$PwD/episodes.xml" -B 10)	# Get XML data of episode
+	episode_info=$(grep "Name>$episode_title" "$PwD/episodes.xml" -B 10)	# Get XML data of episode
 	if [ -z "$episode_info" ]; then
 		episode_title=${episode_title% *}
+		if [ ${#episode_title} -le 4 ]; then
+			break;
+		fi
 		eecho -e "    EPG:\tEpisode title:\t$episode_title"
 	else
 		break;
@@ -208,12 +211,23 @@ fi
 
 
 
-episode_number=$(echo -e "$episode_info" | grep -m 1 "episodenumber") # Get episode number
-episode_season=$(echo -e "$episode_info" | grep -m 1 "season")		# Get season number
+episode_number=$(echo -e "$episode_info" | grep -m 1 "Combined_episodenumber") # Get episode number
+episode_season=$(echo -e "$episode_info" | grep -m 1 "Combined_season")		# Get season number
+episode_title=$(echo -e "$episode_info" | grep -m 1 "EpisodeName")			# Get season name
 episode_number=${episode_number%<*}									# remove xml tags
 episode_number=${episode_number#*>}
 episode_season=${episode_season%<*}
 episode_season=${episode_season#*>}
+episode_season=${episode_season%<*}
+episode_title=${episode_title%<*}
+episode_title=${episode_title#*>}
+episode_season=${episode_season#*>}
+if [[ "$episode_number" == *.* ]]; then								# Convert float to integer. Float!?
+	episode_number=${episode_number%%.*}
+fi
+if [[ "$episode_season" == *.* ]]; then
+	episode_season=${episode_number%%.*}
+fi
 
 # add leading zero
 if [ $episode_number -le 9 ]; then

@@ -21,9 +21,11 @@ while getopts "f:l:s" optval; do
 		"l")
 			lang="$OPTARG";;
 		"?")
-			echo "Usage: $0 -f pathToAvi [-s] [-l LANG]";;
+			echo "Usage: $0 -f pathToAvi [-s] [-l LANG]"
+			exit;;
 		":")
-			echo "No argument value for option $OPTARG";;
+			echo "No argument value for option $OPTARG"
+			exit;;
 	esac
 done
 
@@ -34,6 +36,7 @@ eecho
 
 if [ -z "$path" ]; then
 	echo "Usage: $0 -f pathToAvi [-s] [-l LANG]"
+	exit
 fi
 
 case "$lang" in
@@ -137,7 +140,7 @@ fi
 # ------------ EPG vom jeweiligen Tag herunterladen, durchsuchen anhand der Ausstrahlungszeit ------------- ;;
 # Download OTR EPG data and search for series and time
 if [ ! -f "$PWD/epg-$fieldsDate.csv" ]; then				# didnt cache this file
-	rm -f "$PWD/epg-*.csv" 2> /dev/null
+	rm -f ${$PWD// /\\ }/epg-*.csv 2> /dev/null
 	epg_datei="https://www.onlinetvrecorder.com/epg/csv/epg_20${fieldsDate//./_}.csv"
 	wget "$epg_datei" -O "$PWD/epg-$fieldsDate.csv" -o /dev/null
 	error=$?
@@ -178,7 +181,22 @@ if [ $error -ne 0 ]; then
 	exit 6
 fi
 
-episode_info=$(grep "$episode_title" "$PWD/episodes.xml" -B 10)	# Get XML data of episode
+while true; do
+	episode_info=$(grep "$episode_title" "$PWD/episodes.xml" -B 10)	# Get XML data of episode
+	if [ -z "$episode_info" ]; then
+		episode_title=${episode_title% *}
+		eecho -e "    EPG:\tEpisode title:\t$episode_title"
+	else
+		break;
+	fi
+done
+if [ -z "$episode_info" ]; then
+	echo "No episode info found"
+	exit 13
+fi
+
+
+
 episode_number=$(echo -e "$episode_info" | grep -m 1 "episodenumber") # Get episode number
 episode_season=$(echo -e "$episode_info" | grep -m 1 "season")		# Get season number
 episode_number=${episode_number%<*}									# remove xml tags

@@ -180,10 +180,10 @@ function funcGetEpgEpisodeTitle {
 	eecho -e "    EPG:\tEpisode title:\t$episode_title"					# We found some title :)
 }
 
-# Download episodes list from TvDB
+# Download episodes list from TvDB, language as argument
 function funcGetEpisodes {
 	# Download Episode list of series
-	episode_db="https://www.thetvdb.com/api/$apikey/series/$series_id/all/$lang.xml"
+	episode_db="https://www.thetvdb.com/api/$apikey/series/$series_id/all/$1.xml"
 	wget $episode_db -O "$PwD/episodes.xml" -o /dev/null
 	error=$?
 	if [ $error -ne 0 ]; then
@@ -198,7 +198,7 @@ function funcGetEpisodeInfo {
 		episode_info=$(grep "Name>$episode_title" "$PwD/episodes.xml" -B 10)	# Get XML data of episode
 		if [ -z "$episode_info" ]; then											# Nothing found. Shorten the title
 			tmp=${episode_title% *}
-			if [ ${#episode_title} -le 4 ] || [ "$tmp" == "$episode_title" ]; then
+			if [ ${#tmp} -le 4 ] || [ "$tmp" == "$episode_title" ]; then
 				break;
 			fi
 			episode_title="$tmp"
@@ -264,20 +264,36 @@ function doIt {
 	funcGetSeriesId											# Get series ID from cache or TvDB
 	funcGetEPG												# Download epg file
 	funcGetEpgEpisodeTitle "."								# Get the episode title using . as delimiter
-	funcGetEpisodes											# Download episodes file
+
+	doItEpisodes $lang										# Search for the episode in the specified language
+	if [ -z "$episode_info" ]; then							# Episode was not found!
+		if [ "$lang" != "en" ]; then
+			doItEpisodes "en"								# Try it again with english
+		fi
+		if [ -z "$episode_info" ]; then						# Again/still no info found! Damn :(
+			echo "No episode info found!"
+			exit 20
+		fi
+	fi
+		
+	
+	if [ -n "$episode_info" ]; then
+		echo "${series_title// /.}..S${episode_season}E${episode_number}..${episode_title// /.}.$file_suffix"
+		exit 0
+	fi
+}
+
+# Parse the episodes, language as argument
+function doItEpisodes {
+	funcGetEpisodes $1										# Download episodes file
 	funcGetEpisodeInfo
 	
 	if [ -z "$episode_info" ]; then							# No info found!
 		funcGetEpgEpisodeTitle ","							# Try again with , as delimiter
 		funcGetEpisodeInfo
-		if [ -z "$episode_info" ]; then						# Again no info found!
-			echo "No episode info found!"
-			exit 20
-		fi
 	fi
-	
-	echo "${series_title// /.}..S${episode_season}E${episode_number}..${episode_title// /.}.$file_suffix"
 }
 
 funcParam $@
 doIt
+exit 30

@@ -107,35 +107,47 @@ eecho -e "    Datum:\t$fieldsDateInv"
 eecho -e "    Uhrzeit:\t$fieldsTime"
 eecho -e "    Titel:\t$fieldsTitle"
 
-# ------------ Series ID abrufen anhand vom Titel der Serie -------------------- ;;
-series_db="https://www.thetvdb.com/api/GetSeries.php?seriesname=$fieldsTitle&language=$lang"
-wget "$series_db" -O "$PwD/series.xml" -o /dev/null
-error=$?
-if [ $error -ne 0 ]; then
-	eecho "Downloading $series_db failed (Exit code: $error)!"
-	exit 2
+if [ -f "$PwD/series.cache" ]; then								# Search the series cache
+	series_id=$(grep "$series_title" "$PwD/series.cache");
 fi
+if [ -n "$series_id" ]; then									# And get the TvDB series ID from there
+	echo $series_id
+	series_title=${series_id%|#|*}
+	series_id=${series_id#*|#|}
+	eecho -e "    Cache:\tSeries found.\tID:    $series_id"
+else															# Otherwise ask TvDB whether they do know the series
+	# ------------ Series ID abrufen anhand vom Titel der Serie -------------------- ;;
+	series_db="https://www.thetvdb.com/api/GetSeries.php?seriesname=$fieldsTitle&language=$lang"
+	wget "$series_db" -O "$PwD/series.xml" -o /dev/null
+	error=$?
+	if [ $error -ne 0 ]; then
+		eecho "Downloading $series_db failed (Exit code: $error)!"
+		exit 2
+	fi
+	
+	series_id=$(grep -m 1 "seriesid" "$PwD/series.xml")			# Get series id (needed later)
+	if [ -z "$series_id" ]; then
+		eecho -e "    TVDB:\tSeries NOT found!"
+		exit 3
+	fi
+	
+	series_title=$(grep -m 1 "SeriesName" "$PwD/series.xml")	# Get series name from TvDB (for user)
+	series_alias=$(grep -m 1 "AliasName" "$PwD/series.xml")
+	series_id=${series_id%<*}									# Remove XML tags
+	series_id=${series_id#*>}
+	series_title=${series_title%<*}
+	series_title=${series_title#*>}
+	series_alias=${series_alias%<*}
+	series_alias=${series_alias#*>}
 
-series_id=$(grep -m 1 "seriesid" "$PwD/series.xml")			# Get series id (needed later)
-if [ -z "$series_id" ]; then
-	eecho -e "    TVDB:\tSeries NOT found!"
-	exit 3
+	eecho -e "    TVDB:\tSeries found.\tID:    $series_id"
 fi
-
-series_title=$(grep -m 1 "SeriesName" "$PwD/series.xml")	# Get series name from TvDB (for user)
-series_alias=$(grep -m 1 "AliasName" "$PwD/series.xml")
-series_id=${series_id%<*}									# Remove XML tags
-series_id=${series_id#*>}
-series_title=${series_title%<*}
-series_title=${series_title#*>}
-series_alias=${series_alias%<*}
-series_alias=${series_alias#*>}
-
-eecho -e "    TVDB:\tSeries found.\tID:    $series_id"
 eecho -e "\t\t\t\tName:  $series_title"
 if [ -n "$series_alias" ]; then
 	eecho -e "\t\t\t\tAlias: $series_alias"
 fi
+
+echo "$series_title|#|$series_id" >> "$PwD/series.cache"
 
 # ------------ EPG vom jeweiligen Tag herunterladen, durchsuchen anhand der Ausstrahlungszeit ------------- ;;
 # Download OTR EPG data and search for series and time

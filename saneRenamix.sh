@@ -21,7 +21,15 @@ function eecho {
 	fi
 }
 
-
+# trap ctrl-c and call ctrl_c()
+trap ctrl_c INT
+function ctrl_c() {
+    if $wget_running; then
+		rm -f $wget_file
+	fi
+    exit 40
+}
+wget_running=false;
 
 # Parse the parameters
 function funcParam {
@@ -102,54 +110,95 @@ function funcAnalyzeFilename {
 
 # Get the series ID from TvDB (needed to fetch episodes from TvDB)
 function funcGetSeriesId {
+	local tmp;
 	if [ -f "$PwD/series.cache" ]; then								# Search the series cache
-		series_id=$(grep "$file_title" "$PwD/series.cache");
+		funcGetSeriesIdFromCache
 	fi
-	if [ -n "$series_id" ]; then									# And get the TvDB series ID from there
-		series_title=${series_id%|#|*}
-		series_id=${series_id#*|#|}
-		eecho -e "    Cache:\tSeries found.\tID:    $series_id"
-	else															# Otherwise ask TvDB whether they do know the series
-		# ------------ Series ID abrufen anhand vom Titel der Serie -------------------- ;;
-		series_db="https://www.thetvdb.com/api/GetSeries.php?seriesname=${file_title}&language=$lang"
-		wget "$series_db" -O "$PwD/series.xml" -o /dev/null
-		error=$?
-		if [ $error -ne 0 ]; then
-			eecho "Downloading $series_db failed (Exit code: $error)!"
-			exit 2
-		fi
-
-		series_id=$(grep -m 1 "seriesid" "$PwD/series.xml")
-		if [ -z "$series_id" ]; then
-			eecho -e "    TVDB:\tSeries NOT found!"
-			exit 3
-		fi
-		
-		series_title=$(grep -m 1 "SeriesName" "$PwD/series.xml")	# Get series name from TvDB (for user)
-		series_alias=$(grep -m 1 "AliasName" "$PwD/series.xml")
-		series_id=${series_id%<*}									# Remove XML tags
-		series_id=${series_id#*>}
-		series_title=${series_title%<*}
-		series_title=${series_title#*>}
-		series_alias=${series_alias%<*}
-		series_alias=${series_alias#*>}
-
-		echo "$series_title|#|$series_id" >> "$PwD/series.cache"
-		eecho -e "    TVDB:\tSeries found.\tID:    $series_id"
+	if [ -z "$series_id" ]; then									# Otherwise ask TvDB whether they do know the series
+		funcGetSeriesIdFromTvdb
 	fi
-	eecho -e "\t\t\t\tName:  $series_title"
+	if [ -z "$series_id" ]; then									# This series was not found anywhere :(
+		eecho -e "    TVDB:\tSeries not found!"
+		exit 30
+	fi
+
+	eecho -e "    \t\t\tName:\t$series_title"
 	if [ -n "$series_alias" ]; then
 		eecho -e "\t\t\t\tAlias: $series_alias"
 	fi
 }
 
+# Search the series.cache file for this series and get TvDB series id
+function funcGetSeriesIdFromCache {
+	local title;
+	local tmp;
+	title="$file_title";
+	while true; do
+		series_id="$(grep "^$title|#|" "$PwD/series.cache")"			# Search for this title in the cache
+		if [ -n "$series_id" ]; then									# Stop if we have found something
+			series_title="${series_id%|#|*}"
+			series_id="${series_id#*|#|}"
+			eecho -e "    Cache:\tSeries found.\tID:\t$series_id"
+			break;
+		fi
+		tmp="${title% *}"												# Shorten the title by one word
+		if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then			# Too short or was not shortened
+			break;
+		fi
+		title=$tmp
+	done
+}
+
+# Search the TvDB for this series and get TvDB series id
+function funcGetSeriesIdFromTvdb {
+	local title;
+	local tmp;
+	title="$file_title";
+	while true; do
+		series_db="https://www.thetvdb.com/api/GetSeries.php?seriesname=${title}&language=$lang"
+		wget_file="$PwD/series.xml"
+		wget_running=true;
+		wget "$series_db" -O "$wget_file" -o /dev/null
+		wget_running=false;
+		error=$?
+		if [ $error -ne 0 ]; then
+			eecho -e "\t\t\tDownloading $series_db failed (Exit code: $error)!"
+		fi
+		tmp=$(grep -m 1 -B 3 -A 1 ">$title<" "$wget_file")
+		if [ -n "$tmp" ]; then
+			series_id=$(echo "$tmp" | grep "seriesid>")
+			series_title=$(echo "$tmp" | grep "SeriesName>")			# Get series name from TvDB
+			series_alias=$(echo "$tmp" | grep "AliasName>")
+			series_id=${series_id%<*}									# Remove XML tags
+			series_id=${series_id#*>}
+			series_title=${series_title%<*}
+			series_title=${series_title#*>}
+			series_alias=${series_alias%<*}
+			series_alias=${series_alias#*>}
+
+			echo "$series_title|#|$series_id" >> "$PwD/series.cache"
+			eecho -e "    TVDB:\tSeries found.\tID:    $series_id"
+			break
+		fi
+
+		tmp="${title% *}"												# Shorten the title by one word
+		if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then			# Too short or was not shortened
+			break;
+		fi
+		title=$tmp
+	done
+}
+
 # Get the EPG from OnlineTvRecorder and get the title of the episode
 function funcGetEPG {
 	# Download OTR EPG data and search for series and time
-	if [ ! -f "$PwD/epg-${file_date}.csv" ]; then						# This file does not exist
+	wget_file="$PwD/epg-${file_date}.csv"
+	if [ ! -f "$wget_file" ]; then										# This EPG file does not exist
 		rm -f ${PwD// /\\ }/epg-*.csv 2> /dev/null						# Delete all old files
 		epg_csv="https://www.onlinetvrecorder.com/epg/csv/epg_20${file_date//./_}.csv"
-		wget "$epg_csv" -O "$PwD/epg-${file_date}.csv" -o /dev/null		# Download the csv
+		wget_running=true;
+		wget "$epg_csv" -O "$wget_file" -o /dev/null					# Download the csv
+		wget_running=false;
 		error=$?
 		if [ $error -ne 0 ]; then
 			eecho "Downloading $epg_csv failed (Exit code: $error)!"
@@ -157,9 +206,9 @@ function funcGetEPG {
 		fi
 	fi
 
-	epg="$(grep "$series_title" "$PwD/epg-${file_date}.csv" | grep "${file_time}")"	# Get the line with the movie
+	epg="$(grep "$series_title" "$wget_file" | grep "${file_time}")"	# Get the line with the movie
 	if [ -z "$epg" ]; then
-		eecho -e "    EPG:\tSeries not found in EPG data"				# This cannot happen :)
+		eecho -e "    EPG:\tSeries \"$series_title\" not found in EPG data"	# This cannot happen :)
 		exit 5
 	fi
 
@@ -184,7 +233,10 @@ function funcGetEpgEpisodeTitle {
 function funcGetEpisodes {
 	# Download Episode list of series
 	episode_db="https://www.thetvdb.com/api/$apikey/series/$series_id/all/$1.xml"
-	wget $episode_db -O "$PwD/episodes.xml" -o /dev/null
+	wget_file="$PwD/episodes.xml"
+	wget_running=true;
+	wget $episode_db -O "$wget_file" -o /dev/null
+	wget_running=false;
 	error=$?
 	if [ $error -ne 0 ]; then
 		eecho "Downloading $episode_db failed (Exit code: $error)!"
@@ -232,7 +284,7 @@ function funcGetEpisodeInfo {
 			episode_season="0$episode_season"
 		fi
 
-		eecho -e "    TvDB:\tSeason:\t$episode_season"
+		eecho -e "    TvDB:\tSeason: \t$episode_season"
 		eecho -e "         \tEpisode:\t$episode_number"
 	fi
 }
@@ -262,8 +314,15 @@ function doIt {
 
 	funcAnalyzeFilename										# Get info from $file_name
 	funcGetSeriesId											# Get series ID from cache or TvDB
-	funcGetEPG												# Download epg file
-	funcGetEpgEpisodeTitle "."								# Get the episode title using . as delimiter
+
+	if [ "$file_title" != "$series_title" ]; then			# Title in file is not series title. This means the episode title is also in the file title
+		episode_title="${file_title#$series_title }"
+		eecho -e "    \t\tEpisode title:\t$episode_title"
+		episode_title_set=true								# used in doItEpisodes (whether the episode title shall be search in epg)
+	else													# Otherwise search the episode title in the EPG:
+		funcGetEPG											# Download epg file
+		episode_title_set=false
+	fi
 
 	doItEpisodes $lang										# Search for the episode in the specified language
 	if [ -z "$episode_info" ]; then							# Episode was not found!
@@ -285,10 +344,13 @@ function doIt {
 
 # Parse the episodes, language as argument
 function doItEpisodes {
+	if ! $episode_title_set; then
+		funcGetEpgEpisodeTitle "."							# Get the episode title using . as delimiter
+	fi
 	funcGetEpisodes $1										# Download episodes file
 	funcGetEpisodeInfo
 	
-	if [ -z "$episode_info" ]; then							# No info found!
+	if [ -z "$episode_info" ] && ! $episode_title_set; then	# No info found and delimiter , possible:
 		funcGetEpgEpisodeTitle ","							# Try again with , as delimiter
 		funcGetEpisodeInfo
 	fi

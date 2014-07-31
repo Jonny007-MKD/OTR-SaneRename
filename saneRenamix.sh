@@ -231,23 +231,25 @@ function funcGetEpgEpisodeTitle {
 
 # Download episodes list from TvDB, language as argument
 function funcGetEpisodes {
-	# Download Episode list of series
-	episode_db="https://www.thetvdb.com/api/$apikey/series/$series_id/all/$1.xml"
-	wget_file="$PwD/episodes.xml"
-	wget_running=true;
-	wget $episode_db -O "$wget_file" -o /dev/null
-	wget_running=false;
-	error=$?
-	if [ $error -ne 0 ]; then
-		eecho "Downloading $episode_db failed (Exit code: $error)!"
-		exit 6
+	wget_file="$PwD/episodes-${series_id}.xml"
+	if [ ! -f "$wget_file" ]; then
+		# Download Episode list of series
+		episode_db="https://www.thetvdb.com/api/$apikey/series/$series_id/all/$1.xml"
+		wget_running=true;
+		wget $episode_db -O "$wget_file" -o /dev/null
+		wget_running=false;
+		error=$?
+		if [ $error -ne 0 ]; then
+			eecho "Downloading $episode_db failed (Exit code: $error)!"
+			exit 6
+		fi
 	fi
 }
 
 # Get the information from episodes list of TvDB
 function funcGetEpisodeInfo {
 	while true; do
-		episode_info=$(grep "Name>$episode_title" "$PwD/episodes.xml" -B 10)	# Get XML data of episode
+		episode_info=$(grep "Name>$episode_title" "$PwD/episodes-${series_id}.xml" -B 10)	# Get XML data of episode
 		if [ -z "$episode_info" ]; then											# Nothing found. Shorten the title
 			tmp=${episode_title% *}
 			if [ ${#tmp} -le 4 ] || [ "$tmp" == "$episode_title" ]; then
@@ -290,6 +292,19 @@ function funcGetEpisodeInfo {
 }
 
 
+
+function funcMakeFilename {
+	if [ "$lang" == "de" ]; then
+		episode_title=${episode_title//Ä/Ae}				# Replace umlauts
+		episode_title=${episode_title//Ö/Oe}
+		episode_title=${episode_title//Ü/Ue}
+		episode_title=${episode_title//ä/ae}
+		episode_title=${episode_title//ö/oe}
+		episode_title=${episode_title//ü/ue}
+	fi
+	echo "${series_title// /.}..S${episode_season}E${episode_number}..${episode_title// /.}.$file_suffix"
+}
+
 # This function does everything
 function doIt {	
 	funcHeader
@@ -297,12 +312,6 @@ function doIt {
 	if [ -z "$path" ]; then									# If no path was specified (-f)
 		echo "Usage: $0 -f pathToAvi [-s] [-l LANG]"
 		exit 15
-	fi
-
-	if [ ! -f "$path" ]; then								# If the path is no regular file
-		echo "This is no file!"
-		echo "$path"
-		exit 10
 	fi
 
 	PwD=$(readlink -e $0)									# Get the path to this script
@@ -337,7 +346,7 @@ function doIt {
 		
 	
 	if [ -n "$episode_info" ]; then
-		echo "${series_title// /.}..S${episode_season}E${episode_number}..${episode_title// /.}.$file_suffix"
+		funcMakeFilename
 		exit 0
 	fi
 }

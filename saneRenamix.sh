@@ -248,19 +248,30 @@ function funcGetEpisodes {
 
 # Get the information from episodes list of TvDB
 function funcGetEpisodeInfo {
+	local tmp;
+	local title;
+	title="$episode_title"
+	wget_file="$PwD/episodes-${series_id}.xml"
 	while true; do
-		episode_info=$(grep "Name>$episode_title" "$PwD/episodes-${series_id}.xml" -B 10)	# Get XML data of episode
+		episode_info=$(grep "Name>$title" "$wget_file" -B 10)					# Get XML data of episode
 		if [ -z "$episode_info" ]; then											# Nothing found. Shorten the title
-			tmp=${episode_title% *}
-			if [ ${#tmp} -le 4 ] || [ "$tmp" == "$episode_title" ]; then
+			tmp=${title% *}
+			if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then
 				break;
 			fi
-			episode_title="$tmp"
-			eecho -e "    EPG:\tEpisode title:\t$episode_title"
+			title="$tmp"
+			eecho -e "    EPG:\tEpisode title:\t$title"
 		else
 			break;
 		fi
 	done
+	if [ -z "$episode_info" ]; then												# If we have not found anything
+		tmp="${episode_title%% *}"												# Get the first wird
+		title="${episode_title#$tmp }"											# Remove it from the title
+		eecho -e "    EPG:\tEpisode title:\t$title"
+		episode_info=$(grep "Name>$title" "$wget_file" -B 10)					# Get XML data of episode
+	fi
+	episode_title="$title"
 
 	if [ -n "$episode_info" ]; then												# If we have found something
 		episode_number=$(echo -e "$episode_info" | grep -m 1 "Combined_episodenumber") # Get episode number

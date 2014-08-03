@@ -1,6 +1,15 @@
 #!/bin/bash
 
-# TODO: Umlaute werden beim Download der xml über alle serien nicht richtig übergeben. evtl mit %-Code arbeiten
+# Exit codes:
+# 1  : General error (invalid argument option, missing parameter)
+# 2  : Specified language not recognized
+# 3  : Aborted (Ctrl+C)
+# 10 : Series not found in TvDB
+# 11 : Series not found in EPG
+# 20 : No info for this episode found
+# 21 : No episode title found in EPG
+# 40 : Downloading EPG data failed
+# 41 : Downloading list of episodes from TvDB failed
 
 ##########
 # Config #
@@ -27,7 +36,7 @@ function ctrl_c() {
     if $wget_running; then
 		rm -f $wget_file
 	fi
-    exit 40
+    exit 3
 }
 wget_running=false;
 
@@ -51,14 +60,14 @@ function funcParam {
 						lang="fr";;
 					*)
 						echo "Language not recognized: $OPTARG"
-						exit 11;;
+						exit 2;;
 				esac;;
 			"?")					# Help
 				echo "Usage: $0 -f pathToAvi [-s] [-l LANG]"
 				exit;;
 			":")
 				echo "No argument value for option $OPTARG"
-				exit;;
+				exit 1;;
 		esac
 	done
 }
@@ -119,7 +128,7 @@ function funcGetSeriesId {
 	fi
 	if [ -z "$series_id" ]; then									# This series was not found anywhere :(
 		eecho -e "    TVDB:\tSeries not found!"
-		exit 30
+		exit 10
 	fi
 
 	eecho -e "    \t\t\tName:\t$series_title"
@@ -202,20 +211,23 @@ function funcGetEPG {
 		error=$?
 		if [ $error -ne 0 ]; then
 			eecho "Downloading $epg_csv failed (Exit code: $error)!"
-			exit 4
+			exit 40
 		fi
 	fi
 
 	epg="$(grep "$series_title" "$wget_file" | grep "${file_time}")"	# Get the line with the movie
 	if [ -z "$epg" ]; then
 		eecho -e "    EPG:\tSeries \"$series_title\" not found in EPG data"	# This cannot happen :)
-		exit 5
+		exit 11
 	fi
-
 	# Parse EPG data using read
-	OLDIFS=$IFS
+	OLDIFS=$IF
 	IFS=";"
-	read epg_id epg_start epg_end epg_duration epg_sender epg_title epg_type epg_text epg_genre epg_fsk epg_language epg_weekday epg_additional epg_rpt epg_downloadlink epg_infolink epg_programlink <<< "$epg"
+	while read epg_id epg_start epg_end epg_duration epg_sender epg_title epg_type epg_text epg_genre epg_fsk epg_language epg_weekday epg_additional epg_rpt epg_downloadlink epg_infolink epg_programlink; do
+		if [[ "$epg_start" == *$file_time* ]]; then						# Use the one with the correct start time
+			break
+		fi
+	done <<< "$epg"
 	IFS=$OLDIFS
 }
 
@@ -224,9 +236,9 @@ function funcGetEpgEpisodeTitle {
 	episode_title="${epg_text%%$1*}"									# Text begins with episode title, cut off the rest
 	if [ -z "$episode_title" ]; then
 		eecho -e "    EPG:\tNo Episode title found"
-		exit 5
+	else
+		eecho -e "    EPG:\tEpisode title:\t$episode_title"				# We found some title :)
 	fi
-	eecho -e "    EPG:\tEpisode title:\t$episode_title"					# We found some title :)
 }
 
 # Download episodes list from TvDB, language as argument
@@ -241,7 +253,7 @@ function funcGetEpisodes {
 		error=$?
 		if [ $error -ne 0 ]; then
 			eecho "Downloading $episode_db failed (Exit code: $error)!"
-			exit 6
+			exit 41
 		fi
 	fi
 }
@@ -322,7 +334,7 @@ function doIt {
 
 	if [ -z "$path" ]; then									# If no path was specified (-f)
 		echo "Usage: $0 -f pathToAvi [-s] [-l LANG]"
-		exit 15
+		exit 1
 	fi
 
 	PwD=$(readlink -e $0)									# Get the path to this script
@@ -368,14 +380,21 @@ function doItEpisodes {
 		funcGetEpgEpisodeTitle "."							# Get the episode title using . as delimiter
 	fi
 	funcGetEpisodes $1										# Download episodes file
-	funcGetEpisodeInfo
-	
-	if [ -z "$episode_info" ] && ! $episode_title_set; then	# No info found and delimiter , possible:
-		funcGetEpgEpisodeTitle ","							# Try again with , as delimiter
+	if [ -n "$episode_title" ]; then
 		funcGetEpisodeInfo
+	fi
+	
+	if [ -z "$episode_info" ] && ! $episode_title_set; then	# No info found and delimiter , is possible:
+		funcGetEpgEpisodeTitle ","							# Try again with , as delimiter
+		if [ -n "episode_title" ]; then						# If we have got an episode title
+			funcGetEpisodeInfo
+		else
+			eecho -e "    EPG:\tNo episode title found in EPG!"
+			exit 21
+		fi
 	fi
 }
 
 funcParam $@
 doIt
-exit 30
+exit 20

@@ -203,7 +203,7 @@ function funcGetEPG {
 	# Download OTR EPG data and search for series and time
 	wget_file="$PwD/epg-${file_date}.csv"
 	if [ ! -f "$wget_file" ]; then										# This EPG file does not exist
-		rm -f ${PwD// /\\ }/epg-*.csv 2> /dev/null						# Delete all old files
+		#rm -f ${PwD// /\\ }/epg-*.csv 2> /dev/null						# Delete all old files
 		epg_csv="https://www.onlinetvrecorder.com/epg/csv/epg_20${file_date//./_}.csv"
 		wget_running=true;
 		wget "$epg_csv" -O "$wget_file" -o /dev/null					# Download the csv
@@ -272,7 +272,7 @@ function funcGetEpisodeInfo {
 				break;
 			fi
 			title="$tmp"
-			eecho -e "    EPG:\tEpisode title:\t$title"
+			eecho -e "        \tEpisode title:\t$title"
 		else
 			break;
 		fi
@@ -280,7 +280,7 @@ function funcGetEpisodeInfo {
 	if [ -z "$episode_info" ]; then												# If we have not found anything
 		tmp="${episode_title%% *}"												# Get the first wird
 		title="${episode_title#$tmp }"											# Remove it from the title
-		eecho -e "    EPG:\tEpisode title:\t$title"
+		eecho -e "        \tEpisode title:\t$title"
 		episode_info=$(grep "Name>$title" "$wget_file" -B 10)					# Get XML data of episode
 	fi
 	episode_title="$title"
@@ -361,9 +361,20 @@ function doIt {
 		if [ "$lang" != "en" ]; then
 			doItEpisodes "en"								# Try it again with english
 		fi
-		if [ -z "$episode_info" ]; then						# Again/still no info found! Damn :(
-			echo "No episode info found!"
-			exit 20
+	fi
+
+	if $episode_title_set && [ -z "$episode_info" ]; then	# Episode was not found!
+		episode_title_set=false								# Do not use file name as episode title
+		funcGetEPG											# Download epg file
+		doItEpisodes $lang									# Search for the episode in the specified language and get title from EPG
+		if [ -z "$episode_info" ]; then						# Episode was not found!
+			if [ "$lang" != "en" ]; then
+				doItEpisodes "en"							# Try it again with english
+			fi
+			if [ -z "$episode_info" ]; then					# Again/still no info found! Damn :(
+				echo "No episode info found!"
+				exit 20
+			fi
 		fi
 	fi
 		

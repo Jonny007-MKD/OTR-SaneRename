@@ -243,6 +243,7 @@ function funcGetEPG {
 # Get the title of the episode from description in EPG using $1 as delimiter to the real description
 function funcGetEpgEpisodeTitle {
 	episode_title="${epg_text%%$1*}"									# Text begins with episode title, cut off the rest
+	episode_title="$(echo ${episode_title#$series_title} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"	# Get the title without the series title
 	if [ -z "$episode_title" ]; then
 		eecho -e "    EPG:\tNo Episode title found"
 	else
@@ -291,13 +292,6 @@ function funcGetEpisodeInfo {
 		title="${episode_title#$tmp }"											# Remove it from the title
 		eecho -e "        \tEpisode title:\t$title"
 		episode_info=$(grep "sodeName>$title" "$wget_file" -B 10)				# Get XML data of episode
-	fi
-	if [ -z "$episode_info" ]; then												# If we have not found anything
-		title="$(echo ${episode_title#$series_title } | sed -e 's/^ *//' -e 's/ *$//')"	# Get the title without the series title
-		if [ "$title" != "$episode_title" ]; then
-			eecho -e "        \tEpisode title:\t$title"
-			episode_info=$(grep "sodeName>$title" "$wget_file" -B 10)			# Get XML data of episode
-		fi
 	fi
 
 	if [ -n "$episode_info" ]; then												# If we have found something

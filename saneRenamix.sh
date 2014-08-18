@@ -356,7 +356,7 @@ function doIt {
 	funcAnalyzeFilename										# Get info from $file_name
 	funcGetSeriesId											# Get series ID from cache or TvDB
 
-	if [ -n "$episode_title_set" ] && [ "$file_title" != "$series_title" ]; then			# Title in file is not series title. This means the episode title is also in the file title
+	if [ -z "$episode_title_set" ] && [ "$file_title" != "$series_title" ]; then			# Title in file is not series title. This means the episode title is also in the file title
 		episode_title="${file_title#$series_title }"
 		eecho -e "    \t\tEpisode title:\t$episode_title"
 		episode_title_set=true								# used in doItEpisodes (whether the episode title shall be search in epg)

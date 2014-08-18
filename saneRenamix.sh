@@ -30,6 +30,11 @@ function eecho {
 	fi
 }
 
+function logNexit {
+	echo "$1 - $file_name - $series_title" >> "$PwD/log"
+	exit $1
+}
+
 # trap ctrl-c and call ctrl_c()
 trap ctrl_c INT
 function ctrl_c() {
@@ -128,7 +133,7 @@ function funcGetSeriesId {
 	fi
 	if [ -z "$series_id" ]; then									# This series was not found anywhere :(
 		eecho -e "    TVDB:\tSeries not found!"
-		exit 10
+		logNexit 10
 	fi
 
 	eecho -e "    \t\t\tName:\t$series_title"
@@ -171,7 +176,7 @@ function funcGetSeriesIdFromTvdb {
 		wget_running=false;
 		error=$?
 		if [ $error -ne 0 ]; then
-			eecho -e "\t\t\tDownloading $series_db failed (Exit code: $error)!"
+			eecho -e "\t\t\tDownloading $series_db failed \(Exit code: $error\)!"
 		fi
 		tmp="$(grep -m 1 -B 3 -A 1 ">$title<" "$wget_file")"
 		if [ ${#tmp} -eq 0 ]; then										# No series with this name found
@@ -180,7 +185,7 @@ function funcGetSeriesIdFromTvdb {
 				tmp="$(grep -B 3 -A 1 "<SeriesName>" "$wget_file")"		# Lets use this one
 				episode_title_set=false
 			else
-				eecho -e "    TvDB: $(echo "$tmp" | wc -l) series found with this title ($title)"
+				eecho -e "    TvDB: $(echo "$tmp" | wc -l) series found with this title \($title\)"
 			fi
 		fi
 		if [ -n "$tmp" ]; then
@@ -220,14 +225,14 @@ function funcGetEPG {
 		error=$?
 		if [ $error -ne 0 ]; then
 			eecho "Downloading $epg_csv failed (Exit code: $error)!"
-			exit 40
+			logNexit 40
 		fi
 	fi
 
 	epg="$(grep "$series_title" "$wget_file" | grep "${file_time}")"	# Get the line with the movie
 	if [ -z "$epg" ]; then
 		eecho -e "    EPG:\tSeries \"$series_title\" not found in EPG data"	# This cannot happen :)
-		exit 11
+		logNexit 11
 	fi
 	# Parse EPG data using read
 	OLDIFS=$IF
@@ -263,7 +268,7 @@ function funcGetEpisodes {
 		error=$?
 		if [ $error -ne 0 ]; then
 			eecho "Downloading $episode_db failed (Exit code: $error)!"
-			exit 41
+			logNexit 41
 		fi
 	fi
 }
@@ -382,15 +387,15 @@ function doIt {
 			fi
 			if [ -z "$episode_info" ]; then					# Again/still no info found! Damn :(
 				echo "No episode info found!"
-				exit 20
+				logNexit 20
 			fi
 		fi
 	fi
 		
 	
-	if [ -n "$episode_info" ]; then
+	if [ -n "$episode_info" ] && [ -n "$series_title" ]; then
 		funcMakeFilename
-		exit 0
+		logNexit 0
 	fi
 }
 
@@ -410,11 +415,11 @@ function doItEpisodes {
 			funcGetEpisodeInfo
 		else
 			eecho -e "    EPG:\tNo episode title found in EPG!"
-			exit 21
+			logNexit 21
 		fi
 	fi
 }
 
 funcParam $@
 doIt
-exit 20
+logNexit 20

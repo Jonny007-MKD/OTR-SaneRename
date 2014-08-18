@@ -173,10 +173,19 @@ function funcGetSeriesIdFromTvdb {
 		if [ $error -ne 0 ]; then
 			eecho -e "\t\t\tDownloading $series_db failed (Exit code: $error)!"
 		fi
-		tmp=$(grep -m 1 -B 3 -A 1 ">$title<" "$wget_file")
+		tmp="$(grep -m 1 -B 3 -A 1 ">$title<" "$wget_file")"
+		if [ ${#tmp} -eq 0 ]; then										# No series with this name found
+			tmp="$(grep "<SeriesName>" "$wget_file")"					# Let's get all series from the query
+			if [ $(echo "$tmp" | wc -l) -eq 1 ]; then					# If we only found one series
+				tmp="$(grep -B 3 -A 1 "<SeriesName>" "$wget_file")"		# Lets use this one
+				episode_title_set=false
+			else
+				eecho -e "    TvDB: $(echo "$tmp" | wc -l) series found with this title ($title)"
+			fi
+		fi
 		if [ -n "$tmp" ]; then
 			series_id=$(echo "$tmp" | grep "seriesid>")
-			series_title=$(echo "$tmp" | grep "SeriesName>")			# Get series name from TvDB
+			#series_title=$(echo "$tmp" | grep "SeriesName>")			# Get series name from TvDB
 			series_alias=$(echo "$tmp" | grep "AliasName>")
 			series_id=${series_id%<*}									# Remove XML tags
 			series_id=${series_id#*>}
@@ -265,7 +274,7 @@ function funcGetEpisodeInfo {
 	title="$episode_title"
 	wget_file="$PwD/episodes-${series_id}.xml"
 	while true; do
-		episode_info=$(grep "Name>$title" "$wget_file" -B 10)					# Get XML data of episode
+		episode_info=$(grep "sodeName>$title" "$wget_file" -B 10)				# Get XML data of episode
 		if [ -z "$episode_info" ]; then											# Nothing found. Shorten the title
 			tmp=${title% *}
 			if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then
@@ -281,10 +290,10 @@ function funcGetEpisodeInfo {
 		tmp="${episode_title%% *}"												# Get the first wird
 		title="${episode_title#$tmp }"											# Remove it from the title
 		eecho -e "        \tEpisode title:\t$title"
-		episode_info=$(grep "Name>$title" "$wget_file" -B 10)					# Get XML data of episode
+		episode_info=$(grep "sodeName>$title" "$wget_file" -B 10)				# Get XML data of episode
 	fi
-	episode_title="$title"
 
+	echo $episode_info
 	if [ -n "$episode_info" ]; then												# If we have found something
 		episode_number=$(echo -e "$episode_info" | grep -m 1 "Combined_episodenumber") # Get episode number
 		episode_season=$(echo -e "$episode_info" | grep -m 1 "Combined_season")	# Get season number
@@ -347,7 +356,7 @@ function doIt {
 	funcAnalyzeFilename										# Get info from $file_name
 	funcGetSeriesId											# Get series ID from cache or TvDB
 
-	if [ "$file_title" != "$series_title" ]; then			# Title in file is not series title. This means the episode title is also in the file title
+	if [ -n "$episode_title_set" ] && [ "$file_title" != "$series_title" ]; then			# Title in file is not series title. This means the episode title is also in the file title
 		episode_title="${file_title#$series_title }"
 		eecho -e "    \t\tEpisode title:\t$episode_title"
 		episode_title_set=true								# used in doItEpisodes (whether the episode title shall be search in epg)

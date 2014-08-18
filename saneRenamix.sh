@@ -287,13 +287,19 @@ function funcGetEpisodeInfo {
 		fi
 	done
 	if [ -z "$episode_info" ]; then												# If we have not found anything
-		tmp="${episode_title%% *}"												# Get the first wird
+		tmp="${episode_title%% *}"												# Get the first word
 		title="${episode_title#$tmp }"											# Remove it from the title
 		eecho -e "        \tEpisode title:\t$title"
 		episode_info=$(grep "sodeName>$title" "$wget_file" -B 10)				# Get XML data of episode
 	fi
+	if [ -z "$episode_info" ]; then												# If we have not found anything
+		title="$(echo ${episode_title#$series_title } | sed -e 's/^ *//' -e 's/ *$//')"	# Get the title without the series title
+		if [ "$title" != "$episode_title" ]; then
+			eecho -e "        \tEpisode title:\t$title"
+			episode_info=$(grep "sodeName>$title" "$wget_file" -B 10)			# Get XML data of episode
+		fi
+	fi
 
-	echo $episode_info
 	if [ -n "$episode_info" ]; then												# If we have found something
 		episode_number=$(echo -e "$episode_info" | grep -m 1 "Combined_episodenumber") # Get episode number
 		episode_season=$(echo -e "$episode_info" | grep -m 1 "Combined_season")	# Get season number

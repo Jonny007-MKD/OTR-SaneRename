@@ -395,7 +395,7 @@ function doIt {
 	
 	if [ -n "$episode_info" ] && [ -n "$series_title" ]; then
 		funcMakeFilename
-		logNexit 0
+		exit 0
 	fi
 }
 

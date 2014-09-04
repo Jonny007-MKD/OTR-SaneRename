@@ -227,6 +227,8 @@ function funcGetEPG {
 			eecho "Downloading $epg_csv failed (Exit code: $error)!"
 			logNexit 40
 		fi
+		iconv -f LATIN1 -t utf8 "$wget_file" -o "${wget_file}.iconv"
+		mv "${wget_file}.iconv" "$wget_file"
 	fi
 
 	epg="$(grep "$series_title" "$wget_file" | grep "${file_time}")"	# Get the line with the movie

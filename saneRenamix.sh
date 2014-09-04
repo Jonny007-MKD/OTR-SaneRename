@@ -31,7 +31,10 @@ function eecho {
 }
 
 function logNexit {
-	echo "$1 - $file_name - $series_title" >> "$PwD/log"
+	str="$1 - $file_name - $series_title"
+	if ! grep -q "$str" "$PwD/log" ; then
+		echo "$str" >> "$PwD/log"
+	fi
 	exit $1
 }
 

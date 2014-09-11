@@ -1,21 +1,32 @@
 #!/bin/bash
 
-# Exit codes:
+### Exit codes:
 # 1  : General error (invalid argument option, missing parameter)
 # 2  : Specified language not recognized
 # 3  : Aborted (Ctrl+C)
 # 10 : Series not found in TvDB
 # 11 : Series not found in EPG
+# 12 : Several possible series found
 # 20 : No info for this episode found
 # 21 : No episode title found in EPG
 # 40 : Downloading EPG data failed
 # 41 : Downloading list of episodes from TvDB failed
 
+
+### What this program does
+# Analyze the file name
+# Ask TvDB or cache for the ID of the series
+# Get EPG from OTR
+# Search the episode title in EPG
+# Get a list of all episodes from TvDB
+# Search the episode in this list
+# Print file name with episode and series number
+
 ##########
 # Config #
 ##########
 apikey="2C9BB45EFB08AD3B"
-productname="SaneRename for OTR (ALPHA) v0.2"
+productname="SaneRename for OTR (ALPHA) v0.3"
 lang="de"
 
 
@@ -107,22 +118,27 @@ function funcAnalyzeFilename {
 	file_date=${file_date%% *}
 
 	file_dateInv=$(date +%d.%m.%Y --date="${file_date//./-}")	# Convert YY.MM.DD to DD.MM.YY
-	file_time=${file_time/-/:}								# Convert HH-MM to HH:MM
-
-	file_title=${file_title// s /\'s }						# Replace a single s with 's
-	if [ "$lang" == "de" ]; then
-		file_title=${file_title//Ae/Ä}						# Replace umlauts
-		file_title=${file_title//Oe/Ö}
-		file_title=${file_title//Ue/Ü}
-		file_title=${file_title//ae/ä}
-		file_title=${file_title//oe/ö}
-		file_title=${file_title//ue/ü}
-	fi
+	file_time=${file_time/-/:}									# Convert HH-MM to HH:MM
 	
 	eecho -e "    Work dir:\t$PwD"
 	eecho -e "    Datum:\t$file_dateInv"
 	eecho -e "    Uhrzeit:\t$file_time"
-	eecho -e "    Titel:\t$file_title"
+
+	funcConvertName "$file_title"
+	eecho -e "    Titel:\t$tmp"
+}
+
+function funcConvertName {
+	tmp="$1"
+	tmp=${tmp// s /\'s }							# Replace a single s with 's
+	if [ "$lang" == "de" ]; then
+		tmp=${tmp//Ae/Ä}							# Replace umlauts
+		tmp=${tmp//Oe/Ö}
+		tmp=${tmp//Ue/Ü}
+		tmp=${tmp//ae/ä}
+		tmp=${tmp//oe/ö}
+		tmp=${tmp//ue/ü}
+	fi
 }
 
 # Get the series ID from TvDB (needed to fetch episodes from TvDB)
@@ -139,7 +155,6 @@ function funcGetSeriesId {
 		logNexit 10
 	fi
 
-	eecho -e "    \t\t\tName:\t$series_title"
 	if [ -n "$series_alias" ]; then
 		eecho -e "\t\t\t\tAlias: $series_alias"
 	fi
@@ -151,11 +166,14 @@ function funcGetSeriesIdFromCache {
 	local tmp;
 	title="$file_title";
 	while true; do
-		series_id="$(grep "^$title|#|" "$PwD/series.cache")"			# Search for this title in the cache
+		series_id="$(grep "$title|" "$PwD/series.cache")"			# Search for this title in the cache
 		if [ -n "$series_id" ]; then									# Stop if we have found something
-			series_title="${series_id%|#|*}"
-			series_id="${series_id#*|#|}"
+			series_title_file="${series_id%|_|*}"
+			series_title_tvdb="${series_id#*|_|}"
+			series_title_tvdb="${series_title_tvdb%|#|*}"
+			series_id="${series_id##*|#|}"
 			eecho -e "    Cache:\tSeries found.\tID:\t$series_id"
+			eecho -e "          \t             \tName:\t$series_title_tvdb"
 			break;
 		fi
 		tmp="${title% *}"												# Shorten the title by one word
@@ -181,30 +199,33 @@ function funcGetSeriesIdFromTvdb {
 		if [ $error -ne 0 ]; then
 			eecho -e "\t\t\tDownloading $series_db failed \(Exit code: $error\)!"
 		fi
+
+
 		tmp="$(grep -m 1 -B 3 -A 1 ">$title<" "$wget_file")"
 		if [ ${#tmp} -eq 0 ]; then										# No series with this name found
 			tmp="$(grep "<SeriesName>" "$wget_file")"					# Let's get all series from the query
 			if [ $(echo "$tmp" | wc -l) -eq 1 ]; then					# If we only found one series
 				tmp="$(grep -B 3 -A 1 "<SeriesName>" "$wget_file")"		# Lets use this one
-				episode_title_set=false
 			else
 				eecho -e "    TvDB: $(echo "$tmp" | wc -l) series found with this title \($title\)"
+				logNexit 12
 			fi
 		fi
 		if [ -n "$tmp" ]; then
 			series_id=$(echo "$tmp" | grep "seriesid>")
-			series_title="$title"
-			#series_title=$(echo "$tmp" | grep "SeriesName>")			# Get series name from TvDB
-			series_alias=$(echo "$tmp" | grep "AliasName>")
+			series_title_file="$file_title"
+			series_title_tvdb=$(echo "$tmp" | grep "SeriesName>")		# Get series name from TvDB
+			series_alias=$(echo "$tmp" | grep "AliasNames>")
 			series_id=${series_id%<*}									# Remove XML tags
 			series_id=${series_id#*>}
-			#series_title=${series_title%<*}
-			#series_title=${series_title#*>}
+			series_title_tvdb=${series_title_tvdb%<*}
+			series_title_tvdb=${series_title_tvdb#*>}
 			series_alias=${series_alias%<*}
 			series_alias=${series_alias#*>}
 
-			echo "$series_title|#|$series_id" >> "$PwD/series.cache"
+			echo "$title|_|$series_title_tvdb|#|$series_id" >> "$PwD/series.cache"
 			eecho -e "    TVDB:\tSeries found.\tID:    $series_id"
+			eecho -e "         \t             \tName:  $series_title_tvdb"
 			break
 		fi
 
@@ -235,10 +256,17 @@ function funcGetEPG {
 		mv "${wget_file}.iconv" "$wget_file"
 	fi
 
-	epg="$(grep "$series_title" "$wget_file" | grep "${file_time}")"	# Get the line with the movie
+	epg="$(grep "$series_title_file" "$wget_file" | grep "${file_time}")"			# Get the line with the movie
 	if [ -z "$epg" ]; then
-		eecho -e "    EPG:\tSeries \"$series_title\" not found in EPG data"	# This cannot happen :)
-		logNexit 11
+		funcConvertName "$series_title_file"
+		epg="$(grep "$tmp" "$wget_file" | grep "${file_time}")"						# Get the line with the movie
+		if [ -z "$epg" ]; then
+			epg="$(grep "$series_title_tvdb" "$wget_file" | grep "${file_time}")"	# Get the line with the movie
+			if [ -z "$epg" ]; then
+				eecho -e "    EPG:\tSeries \"$series_title_file\" not found in EPG data"	# This cannot happen :)
+				logNexit 11
+			fi
+		fi
 	fi
 	# Parse EPG data using read
 	OLDIFS=$IF
@@ -253,16 +281,19 @@ function funcGetEPG {
 
 # Get the title of the episode from description in EPG using $1 as delimiter to the real description
 function funcGetEpgEpisodeTitle {
-	episode_title="${epg_text%%$1*}"									# Text begins with episode title, cut off the rest
-	episode_title="$(echo ${episode_title#$series_title} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"	# Get the title without the series title
+	local delimiter;
+	delimiter="$1"
+	episode_title="${epg_text%%$delimiter*}"							# Text begins with episode title, cut off the rest
+	episode_title="${episode_title#$series_title_file}"					# Get the title without the series title
+	episode_title="$(echo ${episode_title#$series_title_tvdb} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"	# Get the title without the series title
 	if [ -z "$episode_title" ]; then
 		eecho -e "    EPG:\tNo Episode title found"
 	else
-		eecho -e "    EPG:\tEpisode title:\t$episode_title"				# We found some title :)
+		eecho -e "    EPG:\tEpisode title:\t$tmp"						# We found some title :)
 	fi
 }
 
-# Download episodes list from TvDB, language as argument
+# Download episodes list  from TvDB, language as argument
 function funcGetEpisodes {
 	wget_file="$PwD/episodes-${series_id}.xml"
 	if [ ! -f "$wget_file" ]; then
@@ -283,14 +314,27 @@ function funcGetEpisodes {
 function funcGetEpisodeInfo {
 	local tmp;
 	local title;
-	title="$episode_title"
+	local title1;
+	title="$episode_title"														# Use coded version of episode title
+	funcConvertName "$episode_title"
+	if [ "$episode_title" != "$tmp" ]; then										# Save state to change to decoded version later
+		title1=true;
+	else
+		title1=false;
+	fi
+
 	wget_file="$PwD/episodes-${series_id}.xml"
 	while true; do
 		episode_info=$(grep "sodeName>$title" "$wget_file" -B 10)				# Get XML data of episode
 		if [ -z "$episode_info" ]; then											# Nothing found. Shorten the title
 			tmp=${title% *}
 			if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then
-				break;
+				if $title1; then
+					funcConvertName "$episode_title"
+					title1=false;
+				else
+					break;
+				fi
 			fi
 			title="$tmp"
 			eecho -e "        \tEpisode title:\t$title"
@@ -298,6 +342,7 @@ function funcGetEpisodeInfo {
 			break;
 		fi
 	done
+
 	if [ -z "$episode_info" ]; then												# If we have not found anything
 		tmp="${episode_title%% *}"												# Get the first word
 		title="${episode_title#$tmp }"											# Remove it from the title
@@ -345,7 +390,7 @@ function funcMakeFilename {
 		episode_title=${episode_title//ö/oe}
 		episode_title=${episode_title//ü/ue}
 	fi
-	echo "${series_title// /.}..S${episode_season}E${episode_number}..${episode_title// /.}.$file_suffix"
+	echo "${series_title_tvdb// /.}..S${episode_season}E${episode_number}..${episode_title// /.}.$file_suffix"
 }
 
 # This function does everything
@@ -367,8 +412,13 @@ function doIt {
 	funcAnalyzeFilename										# Get info from $file_name
 	funcGetSeriesId											# Get series ID from cache or TvDB
 
-	if [ -z "$episode_title_set" ] && [ "$file_title" != "$series_title" ]; then			# Title in file is not series title. This means the episode title is also in the file title
-		episode_title="${file_title#$series_title }"
+	funcConvertName "$file_title"
+	if [ "$tmp" != "$series_title_tvdb" ]; then				# Title in file is not series title. This mey mean the episode title is also in the file title
+		episode_title="${file_title#$series_title_file }"
+		funcConvertName "$series_title_file"
+		episode_title="${episode_title#$tmp }"
+		episode_title="${episode_title#$series_title_tvdb }"
+		episode_title="${episode_title#$series_alias }"
 		eecho -e "    \t\tEpisode title:\t$episode_title"
 		episode_title_set=true								# used in doItEpisodes (whether the episode title shall be search in epg)
 	else													# Otherwise search the episode title in the EPG:
@@ -392,14 +442,14 @@ function doIt {
 				doItEpisodes "en"							# Try it again with english
 			fi
 			if [ -z "$episode_info" ]; then					# Again/still no info found! Damn :(
-				echo "No episode info found!"
+				eecho "No episode info found!"
 				logNexit 20
 			fi
 		fi
 	fi
 		
 	
-	if [ -n "$episode_info" ] && [ -n "$series_title" ]; then
+	if [ -n "$episode_info" ] && [ -n "$series_title_tvdb" ]; then
 		funcMakeFilename
 		exit 0
 	fi

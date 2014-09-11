@@ -193,12 +193,13 @@ function funcGetSeriesIdFromTvdb {
 		fi
 		if [ -n "$tmp" ]; then
 			series_id=$(echo "$tmp" | grep "seriesid>")
+			series_title="$title"
 			#series_title=$(echo "$tmp" | grep "SeriesName>")			# Get series name from TvDB
 			series_alias=$(echo "$tmp" | grep "AliasName>")
 			series_id=${series_id%<*}									# Remove XML tags
 			series_id=${series_id#*>}
-			series_title=${series_title%<*}
-			series_title=${series_title#*>}
+			#series_title=${series_title%<*}
+			#series_title=${series_title#*>}
 			series_alias=${series_alias%<*}
 			series_alias=${series_alias#*>}
 

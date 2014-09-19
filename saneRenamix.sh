@@ -145,13 +145,16 @@ function funcConvertName {
 function funcGetSeriesId {
 	local tmp;
 	if [ -f "$PwD/series.cache" ]; then								# Search the series cache
-		funcGetSeriesIdFromCache
+		funcGetSeriesIdFromCache "$file_title"
+	fi
+	if [ -z "$series_id" ]; then									# Otherwise search the cache with translation
+		funcConvertName "$file_title"
+		funcGetSeriesIdFromCache "$tmp"
 	fi
 	if [ -z "$series_id" ]; then									# Otherwise ask TvDB whether they do know the series
 		funcGetSeriesIdFromTvdb "$file_title"
 	fi
-	if [ -z "$series_id" ]; then									# Otherwise ask TvDB whether they do know the series
-		funcConvertName "$file_title"
+	if [ -z "$series_id" ]; then									# Otherwise ask TvDB with translation
 		funcGetSeriesIdFromTvdb "$tmp"
 	fi
 	if [ -z "$series_id" ]; then									# This series was not found anywhere :(
@@ -168,9 +171,9 @@ function funcGetSeriesId {
 function funcGetSeriesIdFromCache {
 	local title;
 	local tmp;
-	title="$file_title";
+	title="$1";
 	while true; do
-		series_id="$(grep "$title|" "$PwD/series.cache")"			# Search for this title in the cache
+		series_id="$(grep "$title|" "$PwD/series.cache")"				# Search for this title in the cache
 		if [ -n "$series_id" ]; then									# Stop if we have found something
 			series_title_file="${series_id%|_|*}"
 			series_title_tvdb="${series_id#*|_|}"

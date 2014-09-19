@@ -148,7 +148,11 @@ function funcGetSeriesId {
 		funcGetSeriesIdFromCache
 	fi
 	if [ -z "$series_id" ]; then									# Otherwise ask TvDB whether they do know the series
-		funcGetSeriesIdFromTvdb
+		funcGetSeriesIdFromTvdb "$file_title"
+	fi
+	if [ -z "$series_id" ]; then									# Otherwise ask TvDB whether they do know the series
+		funcConvertName "$file_title"
+		funcGetSeriesIdFromTvdb "$tmp"
 	fi
 	if [ -z "$series_id" ]; then									# This series was not found anywhere :(
 		eecho -e "    TVDB:\tSeries not found!"
@@ -188,7 +192,7 @@ function funcGetSeriesIdFromCache {
 function funcGetSeriesIdFromTvdb {
 	local title;
 	local tmp;
-	title="$file_title";
+	title="$1";
 	while true; do
 		series_db="https://www.thetvdb.com/api/GetSeries.php?seriesname=${title}&language=$lang"
 		wget_file="$PwD/series.xml"

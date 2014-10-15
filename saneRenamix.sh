@@ -346,15 +346,22 @@ function funcGetEpisodeInfo {
 	wget_file="$PwD/episodes-${series_id}.xml"
 	while true; do
 		episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10)			# Get XML data of episode
-		if [ -z "$episode_info" ]; then											# Nothing found. Shorten the title
-			tmp=${title% *}
-			if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then
-				if $title1; then
-					funcConvertName "$episode_title"
-					title1=false;
-				else
-					break;
+		if [ -z "$episode_info" ]; then											# Nothing found. Search the description
+			if [ ${#title} -gt 10 ]; then										# If title is long enough
+				episode_info=$(grep -i "verView>$title" "$wget_file" -B 16)
+			fi
+			if [ -z "$episode_info" ]; then										# Still nothing found. Shorten the title
+				tmp=${title% *}
+				if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then
+					if $title1; then
+						funcConvertName "$episode_title"
+						title1=false;
+					else
+						break;
+					fi
 				fi
+			else
+				break;
 			fi
 			title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"		# Remove special characters
 			eecho -e "        \tEpisode title:\t$title"
@@ -368,6 +375,11 @@ function funcGetEpisodeInfo {
 		title="${episode_title#$tmp }"											# Remove it from the title
 		eecho -e "        \tEpisode title:\t$title"
 		episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10)			# Get XML data of episode
+		if [ -z "$episode_info" ]; then											# Nothing found. Search the description
+			if [ ${#title} -gt 10 ]; then										# If title is long enough
+				episode_info=$(grep -i "verView>$title" "$wget_file" -B 16)
+			fi
+		fi
 	fi
 
 	if [ -n "$episode_info" ]; then												# If we have found something

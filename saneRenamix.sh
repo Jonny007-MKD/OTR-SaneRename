@@ -187,7 +187,7 @@ function funcGetSeriesIdFromCache {
 		if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then			# Too short or was not shortened
 			break;
 		fi
-		title=$tmp
+		title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
 	done
 }
 
@@ -208,7 +208,7 @@ function funcGetSeriesIdFromTvdb {
 		fi
 
 
-		tmp="$(grep -m 1 -B 3 -A 1 ">$title<" "$wget_file")"
+		tmp="$(grep -i -m 1 -B 3 -A 1 ">$title<" "$wget_file")"
 		if [ ${#tmp} -eq 0 ]; then										# No series with this name found
 			tmp="$(grep "<SeriesName>" "$wget_file")"					# Let's get all series from the query
 			if [ $(echo "$tmp" | wc -l) -eq 1 ]; then					# If we only found one series
@@ -240,7 +240,7 @@ function funcGetSeriesIdFromTvdb {
 		if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then			# Too short or was not shortened
 			break;
 		fi
-		title=$tmp
+		title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
 	done
 }
 
@@ -263,12 +263,12 @@ function funcGetEPG {
 		mv "${wget_file}.iconv" "$wget_file"
 	fi
 
-	epg="$(grep "$series_title_file" "$wget_file" | grep "${file_time}")"			# Get the line with the movie
+	epg="$(grep -i "$series_title_file" "$wget_file" | grep "${file_time}")"				# Get the line with the movie
 	if [ -z "$epg" ]; then
 		funcConvertName "$series_title_file"
-		epg="$(grep "$tmp" "$wget_file" | grep "${file_time}")"						# Get the line with the movie
+		epg="$(grep -i "$tmp" "$wget_file" | grep "${file_time}")"							# Get the line with the movie
 		if [ -z "$epg" ]; then
-			epg="$(grep "$series_title_tvdb" "$wget_file" | grep "${file_time}")"	# Get the line with the movie
+			epg="$(grep -i "$series_title_tvdb" "$wget_file" | grep "${file_time}")"		# Get the line with the movie
 			if [ -z "$epg" ]; then
 				eecho -e "    EPG:\tSeries \"$series_title_file\" not found in EPG data"	# This cannot happen :)
 				logNexit 11
@@ -296,6 +296,7 @@ function funcGetEpgEpisodeTitle {
 	if [ -z "$episode_title" ]; then
 		eecho -e "    EPG:\tNo Episode title found"
 	else
+		tmp="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
 		eecho -e "    EPG:\tEpisode title:\t$tmp"						# We found some title :)
 	fi
 }
@@ -332,7 +333,7 @@ function funcGetEpisodeInfo {
 
 	wget_file="$PwD/episodes-${series_id}.xml"
 	while true; do
-		episode_info=$(grep "sodeName>$title" "$wget_file" -B 10)				# Get XML data of episode
+		episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10)			# Get XML data of episode
 		if [ -z "$episode_info" ]; then											# Nothing found. Shorten the title
 			tmp=${title% *}
 			if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then
@@ -343,7 +344,7 @@ function funcGetEpisodeInfo {
 					break;
 				fi
 			fi
-			title="$tmp"
+			title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"		# Remove special characters
 			eecho -e "        \tEpisode title:\t$title"
 		else
 			break;
@@ -354,7 +355,7 @@ function funcGetEpisodeInfo {
 		tmp="${episode_title%% *}"												# Get the first word
 		title="${episode_title#$tmp }"											# Remove it from the title
 		eecho -e "        \tEpisode title:\t$title"
-		episode_info=$(grep "sodeName>$title" "$wget_file" -B 10)				# Get XML data of episode
+		episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10)			# Get XML data of episode
 	fi
 
 	if [ -n "$episode_info" ]; then												# If we have found something

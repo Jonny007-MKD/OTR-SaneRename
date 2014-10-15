@@ -248,6 +248,12 @@ function funcGetSeriesIdFromTvdb {
 function funcGetEPG {
 	# Download OTR EPG data and search for series and time
 	wget_file="$PwD/epg-${file_date}.csv"
+	if [ -f "$wget_file" ]; then
+		wget_file_date=$(stat --format=%Y "$wget_file")
+		if [ $(( $(date +%s) - $wget_file_date)) -gt $((60*60*24*7*2)) ]; then		# if file is older than 2 weeks
+			rm "$wget_file"
+		fi
+	fi
 	if [ ! -f "$wget_file" ]; then										# This EPG file does not exist
 		#rm -f ${PwD// /\\ }/epg-*.csv 2> /dev/null						# Delete all old files
 		epg_csv="https://www.onlinetvrecorder.com/epg/csv/epg_20${file_date//./_}.csv"
@@ -304,6 +310,12 @@ function funcGetEpgEpisodeTitle {
 # Download episodes list  from TvDB, language as argument
 function funcGetEpisodes {
 	wget_file="$PwD/episodes-${series_id}.xml"
+	if [ -f "$wget_file" ]; then
+		wget_file_date=$(stat --format=%Y "$wget_file")
+		if [ $(( $(date +%s) - $wget_file_date)) -gt $(( 60*60*24*7*2 )) ]; then		# if file is older than 2 weeks
+			rm "$wget_file"
+		fi
+	fi
 	if [ ! -f "$wget_file" ]; then
 		# Download Episode list of series
 		episode_db="https://www.thetvdb.com/api/$apikey/series/$series_id/all/$1.xml"

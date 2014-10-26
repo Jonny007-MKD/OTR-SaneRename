@@ -300,10 +300,10 @@ function funcGetEpgEpisodeTitle {
 	episode_title="${episode_title#$series_title_file}"					# Get the title without the series title
 	episode_title="$(echo ${episode_title#$series_title_tvdb} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"	# Get the title without the series title
 	if [ -z "$episode_title" ]; then
-		eecho -e "    EPG:\tNo Episode title found"
+		eecho -e "    EPG:\tNo episode title found"
 	else
-		tmp="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
-		eecho -e "    EPG:\tEpisode title:\t$tmp"						# We found some title :)
+		episode_title="$(echo $episode_title | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
+		eecho -e "    EPG:\tEpisode title:\t$episode_title"				# We found some title :)
 	fi
 }
 

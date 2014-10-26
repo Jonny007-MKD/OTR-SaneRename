@@ -100,8 +100,17 @@ function funcHeader {
 
 # Get title, date and time
 function funcAnalyzeFilename {
+	local tmp;
+
 	# Split filename into words, divided by _ (underscores)
 	file="${file_name//_/ }"
+
+	file_suffix="${file_name##*.}"							# Get file suffix
+	tmp="${file_name//.$file_suffix}"
+	case "${tmp##*.}" in									# Prepend special suffixes
+		HQ|HD)
+			file_suffix="${tmp##*.}.$file_suffix";;
+	esac
 
 	firstField="${file%% *}"								# Get the first word
 	test $firstField -eq 0 2>/dev/null						# If first word is a number -> cutlist id
@@ -442,7 +451,6 @@ function doIt {
 	PwD=$(dirname "$PwD")
 
 	file_name="$(basename $path)"							# Get file name
-	file_suffix="${file_name##*.}"							# Get file suffix
 	file_dir="$(dirname $path)"								# Get file directory
 
 	funcAnalyzeFilename										# Get info from $file_name

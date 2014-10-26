@@ -252,6 +252,8 @@ function funcGetEPG {
 		wget_file_date=$(stat --format=%Y "$wget_file")
 		if [ $(( $(date +%s) - $wget_file_date)) -gt $((60*60*24*7*2)) ]; then		# if file is older than 2 weeks
 			rm "$wget_file"
+		elif [ $(stat --format=%s "$wget_file") -eq 0 ]; then						# if file is empty
+			rm "$wget_file"
 		fi
 	fi
 	if [ ! -f "$wget_file" ]; then										# This EPG file does not exist
@@ -313,6 +315,8 @@ function funcGetEpisodes {
 	if [ -f "$wget_file" ]; then
 		wget_file_date=$(stat --format=%Y "$wget_file")
 		if [ $(( $(date +%s) - $wget_file_date)) -gt $(( 60*60*24*7*2 )) ]; then		# if file is older than 2 weeks
+			rm "$wget_file"
+		elif [ $(stat --format=%s "$wget_file") -eq 0 ]; then							# if file is empty
 			rm "$wget_file"
 		fi
 	fi

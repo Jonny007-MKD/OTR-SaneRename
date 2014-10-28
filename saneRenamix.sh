@@ -43,7 +43,7 @@ function eecho {
 
 function logNexit {
 	str="$1 - $file_name - $series_title"
-	if ! grep -q "$str" "$PwD/log" ; then
+	if ! [ -f "$PwD/log" ] && ! grep -q "$str" "$PwD/log" ; then
 		echo "$str" >> "$PwD/log"
 	fi
 	exit $1
@@ -155,10 +155,10 @@ function funcGetSeriesId {
 	local tmp;
 	if [ -f "$PwD/series.cache" ]; then								# Search the series cache
 		funcGetSeriesIdFromCache "$file_title"
-	fi
-	if [ -z "$series_id" ]; then									# Otherwise search the cache with translation
-		funcConvertName "$file_title"
-		funcGetSeriesIdFromCache "$tmp"
+		if [ -z "$series_id" ]; then								# and search the cache with translation
+			funcConvertName "$file_title"
+			funcGetSeriesIdFromCache "$tmp"
+		fi
 	fi
 	if [ -z "$series_id" ]; then									# Otherwise ask TvDB whether they do know the series
 		funcGetSeriesIdFromTvdb "$file_title"

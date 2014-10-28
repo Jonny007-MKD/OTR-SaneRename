@@ -260,8 +260,10 @@ function funcGetEPG {
 	if [ -f "$wget_file" ]; then
 		wget_file_date=$(stat --format=%Y "$wget_file")
 		if [ $(( $(date +%s) - $wget_file_date)) -gt $((60*60*24*7*2)) ]; then		# if file is older than 2 weeks
+			#echo "Deleting file with timestamp $wget_file_date"
 			rm "$wget_file"
 		elif [ $(stat --format=%s "$wget_file") -eq 0 ]; then						# if file is empty
+			#echo "Deleting file with size $(stat --format=%s $wget_file)"
 			rm "$wget_file"
 		fi
 	fi
@@ -320,7 +322,7 @@ function funcGetEpgEpisodeTitle {
 
 # Download episodes list  from TvDB, language as argument
 function funcGetEpisodes {
-	wget_file="$PwD/episodes-${series_id}.xml"
+	wget_file="$PwD/episodes-${series_id}-${langCurrent}.xml"
 	if [ -f "$wget_file" ]; then
 		wget_file_date=$(stat --format=%Y "$wget_file")
 		if [ $(( $(date +%s) - $wget_file_date)) -gt $(( 60*60*24*7*2 )) ]; then		# if file is older than 2 weeks
@@ -331,7 +333,7 @@ function funcGetEpisodes {
 	fi
 	if [ ! -f "$wget_file" ]; then
 		# Download Episode list of series
-		episode_db="https://www.thetvdb.com/api/$apikey/series/$series_id/all/$1.xml"
+		episode_db="https://www.thetvdb.com/api/$apikey/series/$series_id/all/$langCurrent.xml"
 		wget_running=true;
 		wget $episode_db -O "$wget_file" -o /dev/null
 		wget_running=false;
@@ -356,7 +358,7 @@ function funcGetEpisodeInfo {
 		title1=false;
 	fi
 
-	wget_file="$PwD/episodes-${series_id}.xml"
+	wget_file="$PwD/episodes-${series_id}-${langCurrent}.xml"
 	while true; do
 		episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10)			# Get XML data of episode
 		if [ -z "$episode_info" ]; then											# Nothing found. Search the description
@@ -470,20 +472,24 @@ function doIt {
 		episode_title_set=false
 	fi
 
-	doItEpisodes $lang										# Search for the episode in the specified language
+	langCurrent="$lang"
+	doItEpisodes											# Search for the episode in the specified language
 	if [ -z "$episode_info" ]; then							# Episode was not found!
 		if [ "$lang" != "en" ]; then
-			doItEpisodes "en"								# Try it again with english
+			langCurrent="en"
+			doItEpisodes									# Try it again with english
 		fi
 	fi
 
 	if $episode_title_set && [ -z "$episode_info" ]; then	# Episode was not found!
 		episode_title_set=false								# Do not use file name as episode title
 		funcGetEPG											# Download epg file
-		doItEpisodes $lang									# Search for the episode in the specified language and get title from EPG
+		langCurrent="$lang"
+		doItEpisodes										# Search for the episode in the specified language and get title from EPG
 		if [ -z "$episode_info" ]; then						# Episode was not found!
 			if [ "$lang" != "en" ]; then
-				doItEpisodes "en"							# Try it again with english
+				langCurrent="en"
+				doItEpisodes								# Try it again with english
 			fi
 			if [ -z "$episode_info" ]; then					# Again/still no info found! Damn :(
 				eecho "No episode info found!"
@@ -504,7 +510,7 @@ function doItEpisodes {
 	if ! $episode_title_set; then
 		funcGetEpgEpisodeTitle "."							# Get the episode title using . as delimiter
 	fi
-	funcGetEpisodes $1										# Download episodes file
+	funcGetEpisodes											# Download episodes file
 	if [ -n "$episode_title" ]; then
 		funcGetEpisodeInfo
 	fi

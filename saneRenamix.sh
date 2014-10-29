@@ -259,6 +259,7 @@ function funcGetSeriesIdFromTvdb {
 		fi
 
 		if $shorten; then
+			title="${title//\*/ }"											# Remove wildcards from current run
 			tmp="${title% *}"												# Shorten the title by one word
 			if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then			# Too short or was not shortened
 				break;
@@ -266,7 +267,7 @@ function funcGetSeriesIdFromTvdb {
 			title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
 			shorten=false;
 		else
-			title="${title// /*}"
+			title="${title// /*}"											# Replace spaces with wildcards
 			shorten=true;
 		fi
 	done

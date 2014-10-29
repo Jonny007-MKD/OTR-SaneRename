@@ -145,7 +145,7 @@ function funcConvertName {
 	if $debug; then echo -e "\033[36mfuncConvertName $1\033[37m"; fi;
 	tmp="$1"
 	tmp=${tmp// s /\'s }							# Replace a single s with 's
-	if [ "$lang" == "de" ]; then
+	if [ "$langCurrent" == "de" ]; then
 		tmp=${tmp//Ae/Ä}							# Replace umlauts
 		tmp=${tmp//Oe/Ö}
 		tmp=${tmp//Ue/Ü}

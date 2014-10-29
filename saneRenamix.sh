@@ -28,6 +28,7 @@
 apikey="2C9BB45EFB08AD3B"
 productname="SaneRename for OTR (ALPHA) v0.3"
 lang="de"
+debug=false
 
 
 ##########
@@ -61,8 +62,10 @@ wget_running=false;
 
 # Parse the parameters
 function funcParam {
-	while getopts "f:l:s" optval; do
+	while getopts "df:l:s" optval; do
 		case $optval in
+			"d")					# Enable debugging
+				debug=true;;
 			"f")					# Path to file
 				path="$OPTARG";;
 			"s")					# Silent switch
@@ -100,6 +103,7 @@ function funcHeader {
 
 # Get title, date and time
 function funcAnalyzeFilename {
+	if $debug; then echo -e "\033[36mfuncAnalyzeFilename\033[37m"; fi;
 	local tmp;
 
 	# Split filename into words, divided by _ (underscores)
@@ -138,6 +142,7 @@ function funcAnalyzeFilename {
 }
 
 function funcConvertName {
+	if $debug; then echo -e "\033[36mfuncConvertName $1\033[37m"; fi;
 	tmp="$1"
 	tmp=${tmp// s /\'s }							# Replace a single s with 's
 	if [ "$lang" == "de" ]; then
@@ -152,6 +157,7 @@ function funcConvertName {
 
 # Get the series ID from TvDB (needed to fetch episodes from TvDB)
 function funcGetSeriesId {
+	if $debug; then echo -e "\033[36mfuncGetSeriesId\033[37m"; fi;
 	local tmp;
 	if [ -f "$PwD/series.cache" ]; then								# Search the series cache
 		funcGetSeriesIdFromCache "$file_title"
@@ -178,6 +184,7 @@ function funcGetSeriesId {
 
 # Search the series.cache file for this series and get TvDB series id
 function funcGetSeriesIdFromCache {
+	if $debug; then echo -e "\033[36mfuncGetSeriesIdFromCache $1\033[37m"; fi;
 	local title;
 	local tmp;
 	title="$1";
@@ -202,6 +209,7 @@ function funcGetSeriesIdFromCache {
 
 # Search the TvDB for this series and get TvDB series id
 function funcGetSeriesIdFromTvdb {
+	if $debug; then echo -e "\033[36mfuncGetSeriesIdFromTvdb $1\033[37m"; fi;
 	local title;
 	local tmp;
 	title="$1";
@@ -255,6 +263,7 @@ function funcGetSeriesIdFromTvdb {
 
 # Get the EPG from OnlineTvRecorder and get the title of the episode
 function funcGetEPG {
+	if $debug; then echo -e "\033[36mfuncGetEPG\033[37m"; fi;
 	# Download OTR EPG data and search for series and time
 	wget_file="$PwD/epg-${file_date}.csv"
 	if [ -f "$wget_file" ]; then
@@ -307,8 +316,10 @@ function funcGetEPG {
 
 # Get the title of the episode from description in EPG using $1 as delimiter to the real description
 function funcGetEpgEpisodeTitle {
+	if $debug; then echo -e "\033[36mfuncGetEpgEpisodeTitle\033[37m"; fi;
 	local delimiter;
 	delimiter="$1"
+
 	episode_title="${epg_text%%$delimiter*}"							# Text begins with episode title, cut off the rest
 	episode_title="${episode_title#$series_title_file}"					# Get the title without the series title
 	episode_title="$(echo ${episode_title#$series_title_tvdb} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"	# Get the title without the series title
@@ -322,6 +333,7 @@ function funcGetEpgEpisodeTitle {
 
 # Download episodes list  from TvDB, language as argument
 function funcGetEpisodes {
+	if $debug; then echo -e "\033[36mfuncGetEpisodes\033[37m"; fi;
 	wget_file="$PwD/episodes-${series_id}-${langCurrent}.xml"
 	if [ -f "$wget_file" ]; then
 		wget_file_date=$(stat --format=%Y "$wget_file")
@@ -347,6 +359,7 @@ function funcGetEpisodes {
 
 # Get the information from episodes list of TvDB
 function funcGetEpisodeInfo {
+	if $debug; then echo -e "\033[36mfuncGetEpisodeInfo\033[37m"; fi;
 	local tmp;
 	local title;
 	local title1;
@@ -429,6 +442,7 @@ function funcGetEpisodeInfo {
 
 
 function funcMakeFilename {
+	if $debug; then echo -e "\033[36mfuncMakeFilename\033[37m"; fi;
 	if [ "$lang" == "de" ]; then
 		episode_title=${episode_title//Ä/Ae}				# Replace umlauts
 		episode_title=${episode_title//Ö/Oe}
@@ -441,7 +455,7 @@ function funcMakeFilename {
 }
 
 # This function does everything
-function doIt {	
+function doIt {
 	funcHeader
 
 	if [ -z "$path" ]; then									# If no path was specified (-f)

@@ -392,10 +392,10 @@ function funcGetEpisodeInfo {
 
 	wget_file="$PwD/episodes-${series_id}-${langCurrent}.xml"
 	while true; do
-		episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10)			# Get XML data of episode
+		episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10 | tail -11)	# Get XML data of episode
 		if [ -z "$episode_info" ]; then											# Nothing found. Search the description
 			if [ ${#title} -gt 10 ]; then										# If title is long enough
-				episode_info=$(grep -i "verView>$title" "$wget_file" -B 16)
+				episode_info=$(grep -i "verView>$title" "$wget_file" -B 16 | tail -17)
 			fi
 			if [ -z "$episode_info" ]; then										# Still nothing found. Shorten the title
 				tmp=${title% *}
@@ -421,14 +421,13 @@ function funcGetEpisodeInfo {
 		tmp="${episode_title%% *}"												# Get the first word
 		title="${episode_title#$tmp }"											# Remove it from the title
 		eecho -e "        \tEpisode title:\t$title"
-		episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10)			# Get XML data of episode
+		episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10 | tail -11)	# Get XML data of episode
 	fi
 	if [ -z "$episode_info" ]; then												# Nothing found. Search the description
 		if [ ${#title} -gt 10 ]; then											# If title is long enough
-			episode_info=$(grep -i "verView>$title" "$wget_file" -B 16)
+			episode_info=$(grep -i "verView>$title" "$wget_file" -B 16 | tail -17)
 		fi
 	fi
-	echo $episode_info
 
 	if [ -n "$episode_info" ]; then												# If we have found something
 		episode_number=$(echo -e "$episode_info" | grep -m 1 "Combined_episodenumber") # Get episode number
@@ -440,22 +439,28 @@ function funcGetEpisodeInfo {
 		episode_season=${episode_season#*>}
 		episode_title=${episode_title%<*}
 		episode_title=${episode_title#*>}
-		if [[ "$episode_number" == *.* ]]; then									# Convert float to integer. Float!?
-			episode_number=${episode_number%%.*}
-		fi
-		if [[ "$episode_season" == *.* ]]; then
-			episode_season=${episode_number%%.*}
-		fi
 
-		if [ $episode_number -le 9 ]; then										# add leading zero
-			episode_number="0$episode_number"
-		fi
-		if [ $episode_season -le 9 ]; then
-			episode_season="0$episode_season"
-		fi
+		if [ -z "$episode_number" -o -z "$episode_season" ]; then				# If we have an illegal match (e.g. Series Overview)
+			episode_info=														# Empty result
+			episode_title=
+		else
+			if [[ "$episode_number" == *.* ]]; then								# Convert float to integer. Float!?
+				episode_number=${episode_number%%.*}
+			fi
+			if [[ "$episode_season" == *.* ]]; then
+				episode_season=${episode_number%%.*}
+			fi
 
-		eecho -e "    TvDB:\tSeason: \t$episode_season"
-		eecho -e "         \tEpisode:\t$episode_number"
+			if [ $episode_number -le 9 ]; then									# add leading zero
+				episode_number="0$episode_number"
+			fi
+			if [ $episode_season -le 9 ]; then
+				episode_season="0$episode_season"
+			fi
+
+			eecho -e "    TvDB:\tSeason: \t$episode_season"
+			eecho -e "         \tEpisode:\t$episode_number"
+		fi
 	fi
 }
 

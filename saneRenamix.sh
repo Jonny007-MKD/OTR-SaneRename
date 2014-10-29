@@ -170,6 +170,7 @@ function funcGetSeriesId {
 		funcGetSeriesIdFromTvdb "$file_title"
 	fi
 	if [ -z "$series_id" ]; then									# Otherwise ask TvDB with translation
+		funcConvertName "$file_title"
 		funcGetSeriesIdFromTvdb "$tmp"
 	fi
 	if [ -z "$series_id" ]; then									# This series was not found anywhere :(
@@ -247,7 +248,7 @@ function funcGetSeriesIdFromTvdb {
 			series_alias=${series_alias%<*}
 			series_alias=${series_alias#*>}
 
-			echo "$title|_|$series_title_tvdb|#|$series_id" >> "$PwD/series.cache"
+			echo "$file_title|_|$series_title_tvdb|#|$series_id" >> "$PwD/series.cache"
 			eecho -e "    TVDB:\tSeries found.\tID:    $series_id"
 			eecho -e "         \t             \tName:  $series_title_tvdb"
 			break
@@ -316,11 +317,17 @@ function funcGetEPG {
 
 # Get the title of the episode from description in EPG using $1 as delimiter to the real description
 function funcGetEpgEpisodeTitle {
-	if $debug; then echo -e "\033[36mfuncGetEpgEpisodeTitle\033[37m"; fi;
+	if $debug; then echo -e "\033[36mfuncGetEpgEpisodeTitle \"$1\" \"$2\"\033[37m"; fi;
 	local delimiter;
-	delimiter="$1"
+	local delimiter2;
+	delimiter1="$1"
+	delimiter2="$2"
 
-	episode_title="${epg_text%%$delimiter*}"							# Text begins with episode title, cut off the rest
+	episode_title="${epg_text%%$delimiter1*}"							# Text begins with episode title, cut off the rest
+	if [ -n "$delimiter2" ]; then
+		episode_title="${episode_title##*$delimiter2}"					# Cut of anything before the second delimiter
+	fi
+	episode_title="$(echo ${episode_title} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
 	episode_title="${episode_title#$series_title_file}"					# Get the title without the series title
 	episode_title="$(echo ${episode_title#$series_title_tvdb} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"	# Get the title without the series title
 	if [ -z "$episode_title" ]; then
@@ -403,10 +410,10 @@ function funcGetEpisodeInfo {
 		title="${episode_title#$tmp }"											# Remove it from the title
 		eecho -e "        \tEpisode title:\t$title"
 		episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10)			# Get XML data of episode
-		if [ -z "$episode_info" ]; then											# Nothing found. Search the description
-			if [ ${#title} -gt 10 ]; then										# If title is long enough
-				episode_info=$(grep -i "verView>$title" "$wget_file" -B 16)
-			fi
+	fi
+	if [ -z "$episode_info" ]; then												# Nothing found. Search the description
+		if [ ${#title} -gt 10 ]; then											# If title is long enough
+			episode_info=$(grep -i "verView>$title" "$wget_file" -B 16)
 		fi
 	fi
 
@@ -465,6 +472,7 @@ function doIt {
 
 	PwD=$(readlink -e $0)									# Get the path to this script
 	PwD=$(dirname "$PwD")
+	langCurrent="$lang"
 
 	file_name="$(basename $path)"							# Get file name
 	file_dir="$(dirname $path)"								# Get file directory
@@ -473,12 +481,15 @@ function doIt {
 	funcGetSeriesId											# Get series ID from cache or TvDB
 
 	funcConvertName "$file_title"
-	if [ "$tmp" != "$series_title_tvdb" ]; then				# Title in file is not series title. This mey mean the episode title is also in the file title
-		episode_title="${file_title#$series_title_file }"
+	if [ "$tmp" != "$series_title_tvdb" -a "$tmp" != "$series_title_file" ]; then				# Title in file is not series title. This mey mean the episode title is also in the file title
+		if $debug; then echo -e "\033[36mParsing file name only! \"$tmp\" != \"$series_title_tvdb\" && \"$tmp\" != \"$series_title_file\""; fi
+		episode_title="$(echo ${file_title#$series_title_file} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
 		funcConvertName "$series_title_file"
-		episode_title="${episode_title#$tmp }"
-		episode_title="${episode_title#$series_title_tvdb }"
-		episode_title="${episode_title#$series_alias }"
+		episode_title="$(echo ${episode_title#$tmp} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
+		episode_title="$(echo ${episode_title#$series_title_tvdb} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
+		episode_title="$(echo ${episode_title#$series_alias} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
+	fi
+	if [ -n "$episode_title" ]; then
 		eecho -e "    \t\tEpisode title:\t$episode_title"
 		episode_title_set=true								# used in doItEpisodes (whether the episode title shall be search in epg)
 	else													# Otherwise search the episode title in the EPG:
@@ -528,14 +539,26 @@ function doItEpisodes {
 	if [ -n "$episode_title" ]; then
 		funcGetEpisodeInfo
 	fi
-	
-	if [ -z "$episode_info" ] && ! $episode_title_set; then	# No info found and delimiter , is possible:
-		funcGetEpgEpisodeTitle ","							# Try again with , as delimiter
+	if [ -z "$episode_info" ] && ! $episode_title_set && [[ "$episode_title" == *,* ]]; then	# No info found and we are allowed to search and our title contains a ","
+		funcGetEpgEpisodeTitle "." ","						# Try again with . AND , as delimiter
 		if [ -n "episode_title" ]; then						# If we have got an episode title
 			funcGetEpisodeInfo
 		else
 			eecho -e "    EPG:\tNo episode title found in EPG!"
 			logNexit 21
+		fi
+	fi
+	
+	if [ -z "$episode_info" ] && ! $episode_title_set; then	# No info found and delimiter , is possible:
+		funcGetEpgEpisodeTitle ","							# Try again with , as delimiter
+		if [ -n "episode_title" ]; then						# If we have got an episode title
+			funcGetEpisodeInfo
+		fi
+	fi
+	if [ -z "$episode_info" ] && ! $episode_title_set && [[ "$episode_title" == *.* ]]; then	# No info found and our title contains a "."
+		funcGetEpgEpisodeTitle "," "."						# Try again with , AND . as delimiter
+		if [ -n "episode_title" ]; then						# If we have got an episode title
+			funcGetEpisodeInfo
 		fi
 	fi
 }

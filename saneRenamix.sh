@@ -213,11 +213,15 @@ function funcGetSeriesIdFromTvdb {
 	if $debug; then echo -e "\033[36mfuncGetSeriesIdFromTvdb $1\033[37m"; fi;
 	local title;
 	local tmp;
+	local shorten;
 	title="$1";
+	shorten=false;
+
 	while true; do
 		series_db="https://www.thetvdb.com/api/GetSeries.php?seriesname=${title}&language=$lang"
 		wget_file="$PwD/series.xml"
 		wget_running=true;
+		if $debug; then echo -e "\033[36mwget \"$series_db\" -O \"$wget_file\"\033[37m"; fi;
 		wget "$series_db" -O "$wget_file" -o /dev/null
 		wget_running=false;
 		error=$?
@@ -228,11 +232,11 @@ function funcGetSeriesIdFromTvdb {
 
 		tmp="$(grep -i -m 1 -B 3 -A 1 ">$title<" "$wget_file")"
 		if [ ${#tmp} -eq 0 ]; then										# No series with this name found
-			tmp="$(grep "<SeriesName>" "$wget_file")"					# Let's get all series from the query
+			tmp="$(grep -Pzo "(?s)>langCurrent</language>\n<SeriesName>" "$wget_file")"						# Let's get all series from the query
 			if [ $(echo "$tmp" | wc -l) -eq 1 ]; then					# If we only found one series
-				tmp="$(grep -B 3 -A 1 "<SeriesName>" "$wget_file")"		# Lets use this one
+				tmp="$(grep -Pzo "(?s)<Series>.*?$langCurrent</language>.*?</SeriesName>" "$wget_file")"	# Lets use this one
 			else
-				eecho -e "    TvDB: $(echo "$tmp" | wc -l) series found with this title \($title\)"
+				eecho -e "    TvDB: $(echo "$tmp" | wc -l) series found with this title ($title)"
 				logNexit 12
 			fi
 		fi
@@ -254,11 +258,17 @@ function funcGetSeriesIdFromTvdb {
 			break
 		fi
 
-		tmp="${title% *}"												# Shorten the title by one word
-		if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then			# Too short or was not shortened
-			break;
+		if $shorten; then
+			tmp="${title% *}"												# Shorten the title by one word
+			if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then			# Too short or was not shortened
+				break;
+			fi
+			title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
+			shorten=false;
+		else
+			title="${title// /*}"
+			shorten=true;
 		fi
-		title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
 	done
 }
 
@@ -281,6 +291,7 @@ function funcGetEPG {
 		#rm -f ${PwD// /\\ }/epg-*.csv 2> /dev/null						# Delete all old files
 		epg_csv="https://www.onlinetvrecorder.com/epg/csv/epg_20${file_date//./_}.csv"
 		wget_running=true;
+		if $debug; then echo -e "\033[36mwget \"$epg_csv\" -O \"$wget_file\"\033[37m"; fi;
 		wget "$epg_csv" -O "$wget_file" -o /dev/null					# Download the csv
 		wget_running=false;
 		error=$?
@@ -354,6 +365,7 @@ function funcGetEpisodes {
 		# Download Episode list of series
 		episode_db="https://www.thetvdb.com/api/$apikey/series/$series_id/all/$langCurrent.xml"
 		wget_running=true;
+		if $debug; then echo -e "\033[36mwget \"$episode_db\" -O \"$wget_file\"\033[37m"; fi;
 		wget $episode_db -O "$wget_file" -o /dev/null
 		wget_running=false;
 		error=$?
@@ -416,6 +428,7 @@ function funcGetEpisodeInfo {
 			episode_info=$(grep -i "verView>$title" "$wget_file" -B 16)
 		fi
 	fi
+	echo $episode_info
 
 	if [ -n "$episode_info" ]; then												# If we have found something
 		episode_number=$(echo -e "$episode_info" | grep -m 1 "Combined_episodenumber") # Get episode number

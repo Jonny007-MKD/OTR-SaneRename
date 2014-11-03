@@ -500,9 +500,10 @@ function doIt {
 	funcGetSeriesId											# Get series ID from cache or TvDB
 
 	funcConvertName "$file_title"
-	if [ "$tmp" != "$series_title_tvdb" -a "$tmp" != "$series_title_file" ]; then				# Title in file is not series title. This mey mean the episode title is also in the file title
-		if $debug; then echo -e "\033[36mParsing file name only! \"$tmp\" != \"$series_title_tvdb\" && \"$tmp\" != \"$series_title_file\""; fi
-		episode_title="$(echo ${file_title#$series_title_file} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
+	if [[ "$tmp" == $series_title_tvdb* ]] || [[ "$file_title" == $series_title_tvdb* ]] ||
+	   [[ "$tmp" == $series_alias* ]]      || [[ "$file_title" == $series_alias* ]]          ; then
+		if $debug; then echo -e "\033[36mParsing file name only! \"$tmp\" == \"$series_title_tvdb*\" || \"$file_title\" == \"$series_title_tvdb*\" || \"$tmp\" == \"$series_alias*\" ||  \"$file_title\" == \"$series_alias*\"\033[37m"; fi
+		episode_title="$(echo ${file_title#$series_title_tvdb} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
 		funcConvertName "$series_title_file"
 		episode_title="$(echo ${episode_title#$tmp} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
 		episode_title="$(echo ${episode_title#$series_title_tvdb} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"

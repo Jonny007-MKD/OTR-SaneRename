@@ -232,8 +232,8 @@ function funcGetSeriesIdFromTvdb {
 		wget_running=true;
 		if $debug; then echo -e "\033[36mwget \"$series_db\" -O \"$wget_file\"\033[37m"; fi;
 		wget "$series_db" -O "$wget_file" -o /dev/null
-		wget_running=false;
 		error=$?
+		wget_running=false;
 		if [ $error -ne 0 ]; then
 			eecho -e "\t\t\tDownloading $series_db failed \(Exit code: $error\)!"
 		fi
@@ -303,8 +303,8 @@ function funcGetEPG {
 		wget_running=true;
 		if $debug; then echo -e "\033[36mwget \"$epg_csv\" -O \"$wget_file\"\033[37m"; fi;
 		wget "$epg_csv" -O "$wget_file" -o /dev/null					# Download the csv
-		wget_running=false;
 		error=$?
+		wget_running=false;
 		if [ $error -ne 0 ]; then
 			eecho "Downloading $epg_csv failed (Exit code: $error)!"
 			logNexit 40
@@ -377,8 +377,8 @@ function funcDownloadEpisodesFile {
 		wget_running=true;
 		if $debug; then echo -e "\033[36mwget \"$episode_db\" -O \"$wget_file\"\033[37m"; fi;
 		wget $episode_db -O "$wget_file" -o /dev/null
-		wget_running=false;
 		error=$?
+		wget_running=false;
 		if [ $error -ne 0 ]; then
 			eecho "Downloading $episode_db failed (Exit code: $error)!"
 			logNexit 41

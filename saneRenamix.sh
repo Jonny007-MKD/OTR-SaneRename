@@ -317,7 +317,7 @@ function funcGetEPG {
 		fi
 	fi
 	# Parse EPG data using read
-	OLDIFS=$IF
+	OLDIFS=$IFS
 	IFS=";"
 	while read epg_id epg_start epg_end epg_duration epg_sender epg_title epg_type epg_text epg_genre epg_fsk epg_language epg_weekday epg_additional epg_rpt epg_downloadlink epg_infolink epg_programlink; do
 		if [[ "$epg_start" == *$file_time* ]]; then						# Use the one with the correct start time

@@ -26,7 +26,7 @@
 # Config #
 ##########
 apikey="2C9BB45EFB08AD3B"
-productname="SaneRename for OTR (ALPHA) v0.3"
+productname="SaneRename for OTR (ALPHA) v0.4"
 lang="de"
 debug=false
 
@@ -105,6 +105,15 @@ function funcHeader {
 function funcAnalyzeFilename {
 	if $debug; then echo -e "\033[36mfuncAnalyzeFilename\033[37m"; fi;
 	local tmp;
+
+	# Remove series and episode information
+	if [[ "$file_name" == S[0-9][0-9]_E[0-9][0-9]_* ]]; then
+		episode_season="${file_name:1:2}"		   # Retreive information
+		episode_number="${file_name:5:2}"
+		episode_season=${episode_season#0}		   # Remove leading 0
+		episode_number=${episode_number#0}
+		file_name="${file_name:8}"
+	fi
 
 	# Split filename into words, divided by _ (underscores)
 	file="${file_name//_/ }"
@@ -430,6 +439,24 @@ function funcGetEpisodeInfoByTitle {
 		fi
 	fi
 
+	funcGetEpisodeInfo_ParseData
+}
+
+
+function funcGetEpisodeInfoBySE {
+	if $debug; then echo -e "\033[36mfuncGetEpisodeInfoBySE\033[37m"; fi;
+
+	wget_file="$PwD/episodes-${series_id}-${langCurrent}.xml"
+
+	episode_info=$(grep -i "bined_episodenumber>$episode_number" "$wget_file" -A 10 | grep -i "bined_season>$episode_season" -B 1 -A 9)		# Get XML data
+
+	funcGetEpisodeInfo_ParseData
+}
+
+
+function funcGetEpisodeInfo_ParseData {
+	if $debug; then echo -e "\033[36mfuncGetEpisodeInfo_ParseData\033[37m"; fi;
+
 	if [ -n "$episode_info" ]; then												# If we have found something
 		episode_number=$(echo -e "$episode_info" | grep -m 1 "Combined_episodenumber") # Get episode number
 		episode_season=$(echo -e "$episode_info" | grep -m 1 "Combined_season")	# Get season number
@@ -467,6 +494,7 @@ function funcGetEpisodeInfoByTitle {
 
 
 
+
 function funcMakeFilename {
 	if $debug; then echo -e "\033[36mfuncMakeFilename\033[37m"; fi;
 	if [ "$lang" == "de" ]; then
@@ -499,50 +527,55 @@ function doIt {
 	funcAnalyzeFilename										# Get info from $file_name
 	funcGetSeriesId											# Get series ID from cache or TvDB
 
-	funcConvertName "$file_title"
-	if [[ "$tmp" == $series_title_tvdb* ]] || [[ "$file_title" == $series_title_tvdb* ]] ||
-	   [[ "$tmp" == $series_alias* ]]      || [[ "$file_title" == $series_alias* ]]          ; then
-		if $debug; then echo -e "\033[36mParsing file name only! \"$tmp\" == \"$series_title_tvdb*\" || \"$file_title\" == \"$series_title_tvdb*\" || \"$tmp\" == \"$series_alias*\" ||  \"$file_title\" == \"$series_alias*\"\033[37m"; fi
-		episode_title="$(echo ${file_title#$series_title_tvdb} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
-		funcConvertName "$series_title_file"
-		episode_title="$(echo ${episode_title#$tmp} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
-		episode_title="$(echo ${episode_title#$series_title_tvdb} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
-		episode_title="$(echo ${episode_title#$series_alias} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
-	fi
-	if [ -n "$episode_title" ]; then
-		eecho -e "    \t\tEpisode title:\t$episode_title"
-		episode_title_set=true								# used in doItEpisodes (whether the episode title shall be search in epg)
-	else													# Otherwise search the episode title in the EPG:
-		funcGetEPG											# Download epg file
-		episode_title_set=false
-	fi
+	if [ -n "$episode_season" -a -n "$episode_number" ]; then	# We already got info from filename
+		funcGetEpisodeInfoBySE
 
-	langCurrent="$lang"
-	doItEpisodes											# Search for the episode in the specified language
-	if [ -z "$episode_info" ]; then							# Episode was not found!
-		if [ "$lang" != "en" ]; then
-			langCurrent="en"
-			doItEpisodes									# Try it again with english
+	else														# We have to get info from EPG
+
+		funcConvertName "$file_title"
+		if [[ "$tmp" == $series_title_tvdb* ]] || [[ "$file_title" == $series_title_tvdb* ]] ||
+		   [[ "$tmp" == $series_alias* ]]      || [[ "$file_title" == $series_alias* ]]          ; then
+			if $debug; then echo -e "\033[36mParsing file name only! \"$tmp\" == \"$series_title_tvdb*\" || \"$file_title\" == \"$series_title_tvdb*\" || \"$tmp\" == \"$series_alias*\" ||  \"$file_title\" == \"$series_alias*\"\033[37m"; fi
+			episode_title="$(echo ${file_title#$series_title_tvdb} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
+			funcConvertName "$series_title_file"
+			episode_title="$(echo ${episode_title#$tmp} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
+			episode_title="$(echo ${episode_title#$series_title_tvdb} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
+			episode_title="$(echo ${episode_title#$series_alias} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
 		fi
-	fi
+		if [ -n "$episode_title" ]; then
+			eecho -e "    \t\tEpisode title:\t$episode_title"
+			episode_title_set=true								# used in doItEpisodes (whether the episode title shall be search in epg)
+		else													# Otherwise search the episode title in the EPG:
+			funcGetEPG											# Download epg file
+			episode_title_set=false
+		fi
 
-	if $episode_title_set && [ -z "$episode_info" ]; then	# Episode was not found!
-		episode_title_set=false								# Do not use file name as episode title
-		funcGetEPG											# Download epg file
 		langCurrent="$lang"
-		doItEpisodes										# Search for the episode in the specified language and get title from EPG
-		if [ -z "$episode_info" ]; then						# Episode was not found!
+		doItEpisodes											# Search for the episode in the specified language
+		if [ -z "$episode_info" ]; then							# Episode was not found!
 			if [ "$lang" != "en" ]; then
 				langCurrent="en"
-				doItEpisodes								# Try it again with english
+				doItEpisodes									# Try it again with english
 			fi
-			if [ -z "$episode_info" ]; then					# Again/still no info found! Damn :(
-				eecho "No episode info found!"
-				logNexit 20
+		fi
+
+		if $episode_title_set && [ -z "$episode_info" ]; then	# Episode was not found!
+			episode_title_set=false								# Do not use file name as episode title
+			funcGetEPG											# Download epg file
+			langCurrent="$lang"
+			doItEpisodes										# Search for the episode in the specified language and get title from EPG
+			if [ -z "$episode_info" ]; then						# Episode was not found!
+				if [ "$lang" != "en" ]; then
+					langCurrent="en"
+					doItEpisodes								# Try it again with english
+				fi
+				if [ -z "$episode_info" ]; then					# Again/still no info found! Damn :(
+					eecho "No episode info found!"
+					logNexit 20
+				fi
 			fi
 		fi
 	fi
-		
 	
 	if [ -n "$episode_info" ] && [ -n "$series_title_tvdb" ]; then
 		funcMakeFilename

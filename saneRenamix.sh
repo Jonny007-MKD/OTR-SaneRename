@@ -97,7 +97,7 @@ function funcParam {
 # Print the header
 function funcHeader {
 	eecho " :: $productname"
-	eecho " :: by Leroy Foerster"
+	eecho " :: by Leroy Foerster & Jonny007-MKD"
 	eecho
 }
 

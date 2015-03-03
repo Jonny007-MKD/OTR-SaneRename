@@ -328,8 +328,8 @@ function funcGetEPG {
 }
 
 # Get the title of the episode from description in EPG using $1 as delimiter to the real description
-function funcGetEpgEpisodeTitle {
-	if $debug; then echo -e "\033[36mfuncGetEpgEpisodeTitle \"$1\" \"$2\"\033[37m"; fi;
+function funcGetEpisodeTitleFromEpg {
+	if $debug; then echo -e "\033[36mfuncGetEpisodeTitleFromEpg \"$1\" \"$2\"\033[37m"; fi;
 	local delimiter;
 	local delimiter2;
 	delimiter1="$1"
@@ -351,8 +351,8 @@ function funcGetEpgEpisodeTitle {
 }
 
 # Download episodes list  from TvDB, language as argument
-function funcGetEpisodes {
-	if $debug; then echo -e "\033[36mfuncGetEpisodes\033[37m"; fi;
+function funcDownloadEpisodesFile {
+	if $debug; then echo -e "\033[36mfuncDownloadEpisodesFile\033[37m"; fi;
 	wget_file="$PwD/episodes-${series_id}-${langCurrent}.xml"
 	if [ -f "$wget_file" ]; then
 		wget_file_date=$(stat --format=%Y "$wget_file")
@@ -378,8 +378,8 @@ function funcGetEpisodes {
 }
 
 # Get the information from episodes list of TvDB
-function funcGetEpisodeInfo {
-	if $debug; then echo -e "\033[36mfuncGetEpisodeInfo\033[37m"; fi;
+function funcGetEpisodeInfoByTitle {
+	if $debug; then echo -e "\033[36mfuncGetEpisodeInfoByTitle\033[37m"; fi;
 	local tmp;
 	local title;
 	local title1;
@@ -553,16 +553,16 @@ function doIt {
 # Parse the episodes, language as argument
 function doItEpisodes {
 	if ! $episode_title_set; then
-		funcGetEpgEpisodeTitle "."							# Get the episode title using . as delimiter
+		funcGetEpisodeTitleFromEpg "."						# Get the episode title using . as delimiter
 	fi
-	funcGetEpisodes											# Download episodes file
+	funcDownloadEpisodesFile								# Download episodes file
 	if [ -n "$episode_title" ]; then
-		funcGetEpisodeInfo
+		funcGetEpisodeInfoByTitle
 	fi
 	if [ -z "$episode_info" ] && ! $episode_title_set && [[ "$episode_title" == *,* ]]; then	# No info found and we are allowed to search and our title contains a ","
-		funcGetEpgEpisodeTitle "." ","						# Try again with . AND , as delimiter
+		funcGetEpisodeTitleFromEpg "." ","					# Try again with . AND , as delimiter
 		if [ -n "episode_title" ]; then						# If we have got an episode title
-			funcGetEpisodeInfo
+			funcGetEpisodeInfoByTitle
 		else
 			eecho -e "    EPG:\tNo episode title found in EPG!"
 			logNexit 21
@@ -570,15 +570,15 @@ function doItEpisodes {
 	fi
 	
 	if [ -z "$episode_info" ] && ! $episode_title_set; then	# No info found and delimiter , is possible:
-		funcGetEpgEpisodeTitle ","							# Try again with , as delimiter
+		funcGetEpisodeTitleFromEpg ","						# Try again with , as delimiter
 		if [ -n "episode_title" ]; then						# If we have got an episode title
-			funcGetEpisodeInfo
+			funcGetEpisodeInfoByTitle
 		fi
 	fi
 	if [ -z "$episode_info" ] && ! $episode_title_set && [[ "$episode_title" == *.* ]]; then	# No info found and our title contains a "."
-		funcGetEpgEpisodeTitle "," "."						# Try again with , AND . as delimiter
+		funcGetEpisodeTitleFromEpg "," "."					# Try again with , AND . as delimiter
 		if [ -n "episode_title" ]; then						# If we have got an episode title
-			funcGetEpisodeInfo
+			funcGetEpisodeInfoByTitle
 		fi
 	fi
 }

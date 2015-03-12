@@ -1,4 +1,4 @@
-epg-*
+/epg-*
 episodes-*
 *.cache
 log

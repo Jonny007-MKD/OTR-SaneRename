@@ -2,3 +2,4 @@ epg-*
 episodes-*
 *.cache
 log
+series.xml

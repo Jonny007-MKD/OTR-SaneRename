@@ -432,10 +432,8 @@ function funcGetEpisodeInfoByTitle {
 
 			title="$episode_title"
 			for i in $(seq 1 $remove_begin); do											# Remove $remove_begin words from the beginning
-				echo $remove_begin $i
 				tmp="${title%% *}"														# Get the first word
 				title="${title#$tmp }"													# Remove it from the title
-				echo $tmp -- $title
 			done
 		done									# Loop: Remove words from beginning
 			

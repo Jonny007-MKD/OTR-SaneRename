@@ -44,7 +44,7 @@ function eecho {
 
 function logNexit {
 	str="$1 - $file_name - $series_title"
-	if ! [ -f "$PwD/log" ] && ! grep -q "$str" "$PwD/log" ; then
+	if [ -f "$PwD/log" ] && ! grep -q "$str" "$PwD/log" ; then
 		echo "$str" >> "$PwD/log"
 	fi
 	exit $1

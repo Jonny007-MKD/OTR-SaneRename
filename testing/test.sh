@@ -5,7 +5,17 @@
 declare -A files
 
 files=(
-	["Bibi_Blocksberg_15.03.07_08-30_zdf_30_TVOON_DE.mpg.avi"]="Bibi.Blocksberg..S01E06..Bibi.im.Dschungel.avi"			# Remove 3 words from the beginning
+# Nothing special
+	["Inspector_Barnaby_15.03.09_21-45_zdfneo_100_TVOON_DE.mpg.HQ.avi"]="Inspector.Barnaby..S07E02..Immer.wenn.der.Scherenschleifer....HQ.avi"
+
+# Remove 3 words from the beginning and some from the end
+	["Bibi_Blocksberg_15.03.07_08-30_zdf_30_TVOON_DE.mpg.avi"]="Bibi.Blocksberg..S01E06..Bibi.im.Dschungel.avi"
+# Use season and episode information from the beginning
+	["S05_E22_Good_Wife_15.03.11_00-40_sixx_40_TVOON_DE.mpg.HQ.avi.otrkey"]="Good.Wife..S05E22..Ein.seltsames.Jahr.otrkey"
+# Cut 3 words from the end
+	["Good_Wife_15.03.11_00-40_sixx_40_TVOON_DE.mpg.HQ.avi.otrkey"]="Good.Wife..S05E22..Ein.seltsames.Jahr.otrkey"
+# Use , as delimiter
+	["H2O_Ploetzlich_Meerjungfrau_15.02.28_11-55_orf1_30_TVOON_DE.mpg.avi.otrkey"]="H2O.-.Plötzlich.Meerjungfrau..S03E06..Bella.irrt.otrkey"
 );
 
 if [ -f test.sh ]; then
@@ -39,6 +49,10 @@ for the_file in "${!files[@]}"; do
 	fi
 
 	result="$($path/saneRenamix.sh $srArgs -s -f "$the_file")";
+
+	if [ -L $path/$epg_file ]; then					# We have created it above
+		rm $path/$epg_file
+	fi
 
 	if [ "$result" != "${files["$the_file"]}" ]; then
 		echo -e "\033[31m$the_file -> $result";

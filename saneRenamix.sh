@@ -594,7 +594,7 @@ function doItEpisodes {
 	fi
 	if [ -z "$episode_info" ] && ! $episode_title_set && [[ "$episode_title" == *,* ]]; then	# No info found and we are allowed to search and our title contains a ","
 		funcGetEpisodeTitleFromEpg "." ","					# Try again with . AND , as delimiter
-		if [ -n "episode_title" ]; then						# If we have got an episode title
+		if [ -n "$episode_title" ]; then					# If we have got an episode title
 			funcGetEpisodeInfoByTitle
 		else
 			eecho -e "    EPG:\tNo episode title found in EPG!"
@@ -604,13 +604,13 @@ function doItEpisodes {
 	
 	if [ -z "$episode_info" ] && ! $episode_title_set; then	# No info found and delimiter , is possible:
 		funcGetEpisodeTitleFromEpg ","						# Try again with , as delimiter
-		if [ -n "episode_title" ]; then						# If we have got an episode title
+		if [ -n "$episode_title" ]; then					# If we have got an episode title
 			funcGetEpisodeInfoByTitle
 		fi
 	fi
 	if [ -z "$episode_info" ] && ! $episode_title_set && [[ "$episode_title" == *.* ]]; then	# No info found and our title contains a "."
 		funcGetEpisodeTitleFromEpg "," "."					# Try again with , AND . as delimiter
-		if [ -n "episode_title" ]; then						# If we have got an episode title
+		if [ -n "$episode_title" ]; then					# If we have got an episode title
 			funcGetEpisodeInfoByTitle
 		fi
 	fi

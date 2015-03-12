@@ -389,55 +389,66 @@ function funcDownloadEpisodesFile {
 # Get the information from episodes list of TvDB
 function funcGetEpisodeInfoByTitle {
 	if $debug; then echo -e "\033[36mfuncGetEpisodeInfoByTitle\033[37m"; fi;
-	local tmp;
-	local title;
-	local title1;
+	local i;
+	local tmp;									# Some tmp variable
+	local title;								# The current string of the title
+	local title_not_converted;					# Whether the title was converted
+	local remove_begin;							# How many words shall be removed from the beginnig
 	title="$episode_title"														# Use coded version of episode title
 	funcConvertName "$episode_title"
 	if [ "$episode_title" != "$tmp" ]; then										# Save state to change to decoded version later
-		title1=true;
+		title_not_converted=true;
 	else
-		title1=false;
+		title_not_converted=false;
 	fi
 
 	wget_file="$PwD/episodes-${series_id}-${langCurrent}.xml"
-	while true; do
-		episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10 | tail -11)	# Get XML data of episode
-		if [ -z "$episode_info" ]; then											# Nothing found. Search the description
-			if [ ${#title} -gt 10 ]; then										# If title is long enough
-				episode_info=$(grep -i "verView>$title" "$wget_file" -B 16 | tail -17)
-			fi
-			if [ -z "$episode_info" ]; then										# Still nothing found. Shorten the title
-				tmp=${title% *}
-				if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then
-					if $title1; then
-						funcConvertName "$episode_title"
-						title1=false;
-					else
-						break;
+
+	while true; do								# Loop: Convert title
+		for remove_begin in 1 2 3 4; do			# Loop: Remove up to 3 words from beginning
+			while true; do						# Loop: Remove words from end
+				eecho -e "        \tEpisode title:\t$title"
+				episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10 | tail -11)	# Get XML data of episode
+				if [ -z "$episode_info" ]; then											# Nothing found. Search the description
+					if [ ${#title} -gt 10 ]; then										# If title is long enough
+						episode_info=$(grep -i "verView>$title" "$wget_file" -B 16 | tail -17)
 					fi
+					if [ -n "$episode_info" ]; then										# We have found something!
+						break;
+					else																# Still nothing found. Shorten the title
+						tmp=${title% *}
+						if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then			# Stop when the title is to short
+							break;
+						fi
+					fi
+					title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"		# Remove special characters
+				else
+					break;
 				fi
-			else
+			done								# Loop: Remove words from end
+			if [ -n "$episode_info" ]; then					# We have found something! :)
 				break;
 			fi
-			title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"		# Remove special characters
-			eecho -e "        \tEpisode title:\t$title"
+
+			title="$episode_title"
+			for i in $(seq 1 $remove_begin); do											# Remove $remove_begin words from the beginning
+				echo $remove_begin $i
+				tmp="${title%% *}"														# Get the first word
+				title="${title#$tmp }"													# Remove it from the title
+				echo $tmp -- $title
+			done
+		done									# Loop: Remove words from beginning
+			
+		if [ -n "$episode_info" ]; then						# We have found something! :)
+			break;
+		fi
+		if $title_not_converted; then						# We have not yet tried to convert the title
+			funcConvertName "$episode_title"
+			title_not_converted=false;
 		else
 			break;
 		fi
-	done
-
-	if [ -z "$episode_info" ]; then												# If we have not found anything
-		tmp="${episode_title%% *}"												# Get the first word
-		title="${episode_title#$tmp }"											# Remove it from the title
-		eecho -e "        \tEpisode title:\t$title"
-		episode_info=$(grep -i "sodeName>$title" "$wget_file" -B 10 | tail -11)	# Get XML data of episode
-	fi
-	if [ -z "$episode_info" ]; then												# Nothing found. Search the description
-		if [ ${#title} -gt 10 ]; then											# If title is long enough
-			episode_info=$(grep -i "verView>$title" "$wget_file" -B 16 | tail -17)
-		fi
-	fi
+	done										# Loop: Convert title
 
 	funcGetEpisodeInfo_ParseData
 }

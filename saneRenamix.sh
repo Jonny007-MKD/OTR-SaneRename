@@ -134,14 +134,6 @@ function funcAnalyzeFilename {
 	file_title=${file%% [0-9][0-9].*}						# Cut off everything after the title: date, hour, sender, ...
 	file_sender=${file##*-[0-9][0-9]}						# Cut off everything bevor the sender: title, date, time, ...
 
-	if [[ "$file_title" == *S[0-9][0-9]E[0-9][0-9] ]]; then				# Series_S00E00_
-		episode_season="${file_title:(-5):2}"	   # Retreive information
-		episode_number="${file_title:(-2):2}"
-		episode_season=${episode_season#0}		   # Remove leading 0
-		episode_number=${episode_number#0}
-		file_title="${file_title:0:-7}"
-	fi
-
 	file_date=${file%%$file_sender}							# Cut off the sender
 	file_date=${file_date##$file_title }					# Cut off the title, now we do have the date and time
 	file_time=${file_date##* }
@@ -150,6 +142,14 @@ function funcAnalyzeFilename {
 	file_dateInv=$(date +%d.%m.%Y --date="${file_date//./-}")	# Convert YY.MM.DD to DD.MM.YY
 	file_time=${file_time/-/:}									# Convert HH-MM to HH:MM
 	
+	if [[ "$file_title" == *S[0-9][0-9]E[0-9][0-9] ]]; then				# Series_S00E00_
+		episode_season="${file_title:(-5):2}"	   # Retreive information
+		episode_number="${file_title:(-2):2}"
+		episode_season=${episode_season#0}		   # Remove leading 0
+		episode_number=${episode_number#0}
+		file_title="${file_title:0:-7}"
+	fi
+
 	eecho -e "    Work dir:\t$PwD"
 	eecho -e "    Datum:\t$file_dateInv"
 	eecho -e "    Uhrzeit:\t$file_time"

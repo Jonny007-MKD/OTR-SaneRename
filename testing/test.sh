@@ -11,7 +11,9 @@ files=(
 # Remove 3 words from the beginning and some from the end
 	["Bibi_Blocksberg_15.03.07_08-30_zdf_30_TVOON_DE.mpg.avi"]="Bibi.Blocksberg..S01E06..Bibi.im.Dschungel.avi"
 # Use season and episode information from the beginning
-	["S05_E22_Good_Wife_15.03.11_00-40_sixx_40_TVOON_DE.mpg.HQ.avi.otrkey"]="Good.Wife..S05E22..Ein.seltsames.Jahr.otrkey"
+	["S05_E22_Good_Wife_15.03.11_00-40_sixx_40_TVOON_DE.mpg.HQ.avi"]="Good.Wife..S05E22..Ein.seltsames.Jahr.HQ.avi"
+# Use season and episode information from the end
+	["Bibi_Blocksberg_S02E07_15.04.05_07-20_zdf_25_TVOON_DE.mpg.avi.otrkey"]="Bibi.Blocksberg..S02E07..Der.Hexengeburtstag.otrkey"
 # Cut 3 words from the end
 	["Good_Wife_15.03.11_00-40_sixx_40_TVOON_DE.mpg.HQ.avi.otrkey"]="Good.Wife..S05E22..Ein.seltsames.Jahr.otrkey"
 # Use , as delimiter

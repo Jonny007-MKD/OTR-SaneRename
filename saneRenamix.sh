@@ -74,8 +74,7 @@ function funcParam {
 				case "$OPTARG" in
 					de*)
 						lang="de";;
-					en*)
-						lang="en";;
+					en*) ;&
 					us*)
 						lang="en";;
 					fr*)
@@ -86,6 +85,9 @@ function funcParam {
 				esac;;
 			"?")					# Help
 				echo "Usage: $0 -f pathToAvi [-s] [-l LANG]"
+				echo
+				echo "-s makes this script to only output the filename"
+				echo "-l lets you search TheTVDB in a different language"
 				exit;;
 			":")
 				echo "No argument value for option $OPTARG"
@@ -531,6 +533,9 @@ function doIt {
 
 	if [ -z "$path" ]; then									# If no path was specified (-f)
 		echo "Usage: $0 -f pathToAvi [-s] [-l LANG]"
+		echo
+		echo "-s makes this script to only output the filename"
+		echo "-l lets you search TheTVDB in a different language"
 		exit 1
 	fi
 

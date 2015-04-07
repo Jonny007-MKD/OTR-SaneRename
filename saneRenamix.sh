@@ -545,6 +545,7 @@ function doIt {
 	funcGetSeriesId											# Get series ID from cache or TvDB
 
 	if [ -n "$episode_season" -a -n "$episode_number" ]; then	# We already got info from filename
+		funcDownloadEpisodesFile
 		funcGetEpisodeInfoBySE
 
 	else														# We have to get info from EPG

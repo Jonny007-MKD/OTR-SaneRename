@@ -483,13 +483,17 @@ function funcGetEpisodeInfo_ParseData {
 	if $debug; then echo -e "\033[36mfuncGetEpisodeInfo_ParseData\033[37m"; fi;
 
 	if [ -n "$episode_info" ]; then												# If we have found something
-		episode_number=$(echo -e "$episode_info" | grep -m 1 "Combined_episodenumber") # Get episode number
-		episode_season=$(echo -e "$episode_info" | grep -m 1 "Combined_season")	# Get season number
+		if [ -z "$episode_number" ]; then
+			episode_number=$(echo -e "$episode_info" | grep -m 1 "Combined_episodenumber") # Get episode number
+			episode_number=${episode_number%<*}										# remove xml tags
+			episode_number=${episode_number#*>}
+		fi
+		if [ -z "$episode_season" ]; then
+			episode_season=$(echo -e "$episode_info" | grep -m 1 "Combined_season")	# Get season number
+			episode_season=${episode_season%<*}
+			episode_season=${episode_season#*>}
+		fi
 		episode_title=$(echo -e "$episode_info" | grep -m 1 "EpisodeName")		# Get season name
-		episode_number=${episode_number%<*}										# remove xml tags
-		episode_number=${episode_number#*>}
-		episode_season=${episode_season%<*}
-		episode_season=${episode_season#*>}
 		episode_title=${episode_title%<*}
 		episode_title=${episode_title#*>}
 

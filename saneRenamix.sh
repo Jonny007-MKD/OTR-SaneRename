@@ -425,13 +425,18 @@ function funcGetEpisodeInfoByTitle {
 					fi
 					if [ -n "$episode_info" ]; then										# We have found something!
 						break;
-					else																# Still nothing found. Shorten the title
-						tmp=${title% *}
-						if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then			# Stop when the title is to short
+					else
+						episode_info=$(grep -Gi "sodeName>${title//\?/.}" "$wget_file" -B 10 | tail -11)	# Get XML data of episode with place holders. Sometime special characters are encoded as '?'
+						if [ -n "$episode_info" ]; then									# We have found something!
 							break;
+						else															# Still nothing found. Shorten the title
+							tmp=${title% *}
+							if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then		# Stop when the title is to short
+								break;
+							fi
 						fi
+						title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9.?]*//' -e 's/ *$//')"	# Remove special characters
 					fi
-					title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"		# Remove special characters
 				else
 					break;
 				fi
@@ -557,7 +562,7 @@ function doIt {
 
 		funcConvertName "$file_title"
 		if [[ "$tmp" == $series_title_tvdb* ]] || [[ "$file_title" == $series_title_tvdb* ]] ||
-		   [[ "$tmp" == $series_alias* ]]      || [[ "$file_title" == $series_alias* ]]          ; then
+		   [ -n "$series_alias" ] && ([[ "$tmp" == $series_alias* ]] || [[ "$file_title" == $series_alias* ]]) ; then
 			if $debug; then echo -e "\033[36mParsing file name only! \"$tmp\" == \"$series_title_tvdb*\" || \"$file_title\" == \"$series_title_tvdb*\" || \"$tmp\" == \"$series_alias*\" ||  \"$file_title\" == \"$series_alias*\"\033[37m"; fi
 			episode_title="$(echo ${file_title#$series_title_tvdb} | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
 			funcConvertName "$series_title_file"

@@ -472,6 +472,7 @@ function funcGetEpisodeInfoBySE {
 
 	wget_file="$PwD/episodes-${series_id}-${langCurrent}.xml"
 
+	#echo "grep -i \"bined_episodenumber>$episode_number\" \"$wget_file\" -A 10 | grep -i \"bined_season>$episode_season\" -B 1 -A 9"
 	episode_info=$(grep -i "bined_episodenumber>$episode_number" "$wget_file" -A 10 | grep -i "bined_season>$episode_season" -B 1 -A 9)		# Get XML data
 
 	funcGetEpisodeInfo_ParseData
@@ -557,8 +558,8 @@ function doIt {
 	if [ -n "$episode_season" -a -n "$episode_number" ]; then	# We already got info from filename
 		funcDownloadEpisodesFile
 		funcGetEpisodeInfoBySE
-
-	else														# We have to get info from EPG
+	fi
+	if [ -z "$episode_info" ]; then								# We have to get info from EPG
 
 		funcConvertName "$file_title"
 		if [[ "$tmp" == $series_title_tvdb* ]] || [[ "$file_title" == $series_title_tvdb* ]] ||

@@ -18,6 +18,8 @@ files=(
 	["Good_Wife_15.03.11_00-40_sixx_40_TVOON_DE.mpg.HQ.avi.otrkey"]="Good.Wife..S05E22..Ein.seltsames.Jahr.otrkey"
 # Use , as delimiter
 	["H2O_Ploetzlich_Meerjungfrau_15.02.28_11-55_orf1_30_TVOON_DE.mpg.avi.otrkey"]="H2O.-.Plötzlich.Meerjungfrau..S03E06..Bella.irrt.otrkey"
+# Series and episode name in title
+	["Irene_Huss_Kripo_Goeteborg_Der_im_Dunkeln_wacht_S02E01_15.08.08_22-55_ard_90_TVOON_DE.mpg.HQ.avi"]="Irene.Huss,.Kripo.Göteborg..S02E01..Der.im.Dunkeln.wacht.HQ.avi"
 );
 
 if [ -f test.sh ]; then
@@ -52,12 +54,12 @@ for the_file in "${!files[@]}"; do
 
 	result="$($path/saneRenamix.sh $srArgs -s -f "$the_file")";
 
-	if [ -L $path/$epg_file ]; then					# We have created it above
-		rm $path/$epg_file
-	fi
-
 	if [ "$result" != "${files["$the_file"]}" ]; then
 		echo -e "\033[31m$the_file -> $result";
 		echo "'$result' != '${files[$the_file]}'";
+	else
+		if [ -L $path/$epg_file ]; then				# We have created it above
+			rm $path/$epg_file
+		fi
 	fi
 done;

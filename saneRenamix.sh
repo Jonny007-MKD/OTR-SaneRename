@@ -232,9 +232,7 @@ function funcGetSeriesIdFromTvdb {
 	if $debug; then echo -e "\033[36mfuncGetSeriesIdFromTvdb $1\033[37m"; fi;
 	local title;
 	local tmp;
-	local shorten;
 	title="$1";
-	shorten=false;
 
 	while true; do
 		series_db="https://www.thetvdb.com/api/GetSeries.php?seriesname=${title}&language=$lang"
@@ -249,11 +247,11 @@ function funcGetSeriesIdFromTvdb {
 		fi
 
 
-		tmp="$(grep -i -m 1 -B 3 -A 1 ">$title<" "$wget_file")"
+		tmp="$(grep -Ei -m 1 -B 3 -A 1 ">${title// /\\W+}<" "$wget_file")"
 		if [ ${#tmp} -eq 0 ]; then										# No series with this name found
-			tmp="$(grep -Pzo "(?s)>langCurrent</language>\n<SeriesName>" "$wget_file")"						# Let's get all series from the query
+			tmp="$(grep -Pzo --binary-files=text "(?s)>langCurrent</language>\n<SeriesName>" "$wget_file")"						# Let's get all series from the query
 			if [ $(echo "$tmp" | wc -l) -eq 1 ]; then					# If we only found one series
-				tmp="$(grep -Pzo "(?s)<Series>.*?$langCurrent</language>.*?</SeriesName>" "$wget_file")"	# Lets use this one
+				tmp="$(grep -Pzo --binary-files=text "(?s)<Series>.*?$langCurrent</language>.*?</SeriesName>" "$wget_file")"	# Lets use this one
 			else
 				eecho -e "    TvDB: $(echo "$tmp" | wc -l) series found with this title ($title)"
 				logNexit 12
@@ -271,24 +269,19 @@ function funcGetSeriesIdFromTvdb {
 			series_alias=${series_alias%<*}
 			series_alias=${series_alias#*>}
 
-			echo "$file_title|_|$series_title_tvdb|#|$series_id" >> "$PwD/series.cache"
-			eecho -e "    TVDB:\tSeries found.\tID:    $series_id"
-			eecho -e "         \t             \tName:  $series_title_tvdb"
+			if [ -n "$series_id" -a -n "$series_title_tvdb" ]; then
+				echo "$file_title|_|$series_title_tvdb|#|$series_id" >> "$PwD/series.cache"
+				eecho -e "    TVDB:\tSeries found.\tID:    $series_id"
+				eecho -e "         \t             \tName:  $series_title_tvdb"
+			fi
 			break
 		fi
 
-		if $shorten; then
-			title="${title//\*/ }"											# Remove wildcards from current run
-			tmp="${title% *}"												# Shorten the title by one word
-			if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then			# Too short or was not shortened
-				break;
-			fi
-			title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
-			shorten=false;
-		else
-			title="${title// /*}"											# Replace spaces with wildcards
-			shorten=true;
+		tmp="${title% *}"												# Shorten the title by one word
+		if [ ${#tmp} -le 4 ] || [ "$tmp" == "$title" ]; then			# Too short or was not shortened
+			break;
 		fi
+		title="$(echo $tmp | sed -e 's/^[^a-zA-Z0-9]*//' -e 's/ *$//')"
 	done
 }
 

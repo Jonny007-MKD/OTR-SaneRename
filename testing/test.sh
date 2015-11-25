@@ -20,6 +20,8 @@ files=(
 	["H2O_Ploetzlich_Meerjungfrau_15.02.28_11-55_orf1_30_TVOON_DE.mpg.avi.otrkey"]="H2O.-.Plötzlich.Meerjungfrau..S03E06..Bella.irrt.otrkey"
 # Series and episode name in title
 	["Irene_Huss_Kripo_Goeteborg_Der_im_Dunkeln_wacht_S02E01_15.08.08_22-55_ard_90_TVOON_DE.mpg.HQ.avi"]="Irene.Huss,.Kripo.Göteborg..S02E01..Der.im.Dunkeln.wacht.HQ.avi"
+# Difficult search for series
+	["Ein_Fall_fuer_TKKG_S01E01_15.11.16_13-20_kika_20_TVOON_DE.mpg.avi"]="Ein.Fall.für.TKKG..S01E01..Das.leere.Grab.im.Moor.avi"
 );
 
 if [ -f test.sh ]; then

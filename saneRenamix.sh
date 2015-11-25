@@ -186,11 +186,11 @@ function funcGetSeriesId {
 		fi
 	fi
 	if [ -z "$series_id" ]; then									# Otherwise ask TvDB whether they do know the series
-		funcGetSeriesIdFromTvdb "$file_title"
+		funcGetSeriesIdFromTvdb "$file_title" false
 	fi
 	if [ -z "$series_id" ]; then									# Otherwise ask TvDB with translation
 		funcConvertName "$file_title"
-		funcGetSeriesIdFromTvdb "$tmp"
+		funcGetSeriesIdFromTvdb "$tmp" true
 	fi
 	if [ -z "$series_id" ]; then									# This series was not found anywhere :(
 		eecho -e "    TVDB:\tSeries not found!"
@@ -232,7 +232,9 @@ function funcGetSeriesIdFromTvdb {
 	if $debug; then echo -e "\033[36mfuncGetSeriesIdFromTvdb $1\033[37m"; fi;
 	local title;
 	local tmp;
+	local lastChance;
 	title="$1";
+	lastChance="$2";
 
 	while true; do
 		series_db="https://www.thetvdb.com/api/GetSeries.php?seriesname=${title}&language=$lang"
@@ -247,14 +249,21 @@ function funcGetSeriesIdFromTvdb {
 		fi
 
 
+		if $debug; then echo -e "grep -Ei -m 1 -B 3 -A 1 \">${title// /\\W+}<\" \"$wget_file\")"; fi;
 		tmp="$(grep -Ei -m 1 -B 3 -A 1 ">${title// /\\W+}<" "$wget_file")"
 		if [ ${#tmp} -eq 0 ]; then										# No series with this name found
-			tmp="$(grep -Pzo --binary-files=text "(?s)>langCurrent</language>\n<SeriesName>" "$wget_file")"						# Let's get all series from the query
+			if $debug; then echo -e "grep -Pzo --binary-files=text \"(?s)>$langCurrent</language>\n<SeriesName>\" \"$wget_file\")"; fi;
+			tmp="$(grep -Pzo --binary-files=text "(?s)>$langCurrent</language>\n<SeriesName>" "$wget_file")"						# Let's get all series from the query
 			if [ $(echo "$tmp" | wc -l) -eq 1 ]; then					# If we only found one series
+				if $debug; then echo -e "grep -Pzo --binary-files=text \"(?s)<Series>.*?$langCurrent</language>.*?</SeriesName>\" \"$wget_file\")"; fi;
 				tmp="$(grep -Pzo --binary-files=text "(?s)<Series>.*?$langCurrent</language>.*?</SeriesName>" "$wget_file")"	# Lets use this one
 			else
-				eecho -e "    TvDB: $(echo "$tmp" | wc -l) series found with this title ($title)"
-				logNexit 12
+				eecho -e "    TvDB: $(echo "$tmp" | wc -l) series found with title \"$title\""
+				if $lastChance; then									# If we really had to find a value now
+					logNexit 12
+				else													# If we may try something else
+					return
+				fi
 			fi
 		fi
 		if [ -n "$tmp" ]; then

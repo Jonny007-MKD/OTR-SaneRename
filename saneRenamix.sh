@@ -259,7 +259,7 @@ function funcGetSeriesIdFromTvdb {
 		if [ ${#tmp} -eq 0 ]; then										# No series with this name found
 			if $debug; then echo -e "grep -Pzo --binary-files=text \"(?s)>$langCurrent</language>\n<SeriesName>\" \"$wget_file\")"; fi;
 			tmp="$(grep -Pzo --binary-files=text "(?s)>$langCurrent</language>\n<SeriesName>" "$wget_file")"						# Let's get all series from the query
-			if [ $(echo "$tmp" | wc -l) -eq 1 ]; then					# If we only found one series
+			if [ $(( $(echo "$tmp" | wc -l) / 2 )) -eq 1 ]; then		# If we only found one series
 				if $debug; then echo -e "grep -Pzo --binary-files=text \"(?s)<Series>.*?$langCurrent</language>.*?</SeriesName>\" \"$wget_file\")"; fi;
 				tmp="$(grep -Pzo --binary-files=text "(?s)<Series>.*?$langCurrent</language>.*?</SeriesName>" "$wget_file")"	# Lets use this one
 			else

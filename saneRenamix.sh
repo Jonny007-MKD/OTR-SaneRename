@@ -89,7 +89,7 @@ function funcParam {
 			"?")					# Help
 				echo "Usage: $0 -f pathToAvi [-c] [-s] [-l LANG]"
 				echo
-				echo "-c disables the series ID cache on the local drive"
+				echo "-c disables the caches on the local drive"
 				echo "-s makes this script to only output the filename"
 				echo "-l lets you search TheTVDB in a different language"
 				exit;;
@@ -309,12 +309,19 @@ function funcGetSeriesIdFromTvdb {
 
 # Get the EPG from OnlineTvRecorder and get the title of the episode
 function funcGetEPG {
+	local wget_file_date;
+	local isLink;
+
 	if $debug; then echo -e "\033[36mfuncGetEPG\033[37m"; fi;
 	# Download OTR EPG data and search for series and time
 	wget_file="$PwD/epg-${file_date}.csv"
 	if [ -f "$wget_file" ]; then
 		wget_file_date=$(stat --format=%Z "$wget_file")
-		if [ $(( $(date +%s) - $wget_file_date)) -gt $((60*60*24*7*2)) ]; then		# if file is older than 2 weeks
+		if [ -L "$wget_file" ]; then isLink=true; else isLink=false; fi;
+		if ! $cache && ! $isLink; then												# if cache is disabled and it's not a symlink
+			if $debug; then echo "Deleting file because caching is disabled ($wget_file)"; fi;
+			rm "$wget_file"
+		elif [ $(( $(date +%s) - $wget_file_date)) -gt $((60*60*24*7*2)) ]; then	# if file is older than 2 weeks
 			if $debug; then echo "Deleting file with timestamp $wget_file_date ($wget_file)"; fi;
 			rm "$wget_file"
 		elif [ $(stat --format=%s "$wget_file") -eq 0 ]; then						# if file is empty
@@ -386,14 +393,21 @@ function funcGetEpisodeTitleFromEpg {
 
 # Download episodes list  from TvDB, language as argument
 function funcDownloadEpisodesFile {
+	local wget_file_date;
+	local isLink;
+
 	if $debug; then echo -e "\033[36mfuncDownloadEpisodesFile\033[37m"; fi;
 	wget_file="$PwD/episodes-${series_id}-${langCurrent}.xml"
 	if [ -f "$wget_file" ]; then
 		wget_file_date=$(stat --format=%Z "$wget_file")
-		if [ $(( $(date +%s) - $wget_file_date)) -gt $(( 60*60*24*2 )) ]; then		# if file is older than 2 days
+		if [ -L "$wget_file" ]; then isLink=true; else isLink=false; fi;
+		if ! $cache && ! $isLink; then												# if cache is disabled and it's not a symlink
+			if $debug; then echo "Deleting file because caching is disabled ($wget_file)"; fi;
+			rm "$wget_file"
+		elif [ $(( $(date +%s) - $wget_file_date)) -gt $(( 60*60*24*2 )) ]; then	# if file is older than 2 days
 			if $debug; then echo "Deleting file with timestamp $wget_file_date ($wget_file)"; fi;
 			rm "$wget_file"
-		elif [ $(stat --format=%s "$wget_file") -eq 0 ]; then							# if file is empty
+		elif [ $(stat --format=%s "$wget_file") -eq 0 ]; then						# if file is empty
 			if $debug; then echo "Deleting empty file $wget_file"; fi;
 			rm "$wget_file"
 		fi

@@ -291,7 +291,7 @@ function funcGetSeriesIdFromTvdb {
 					tmp=
 				fi
 				if [ -z "$tmp" ]; then
-					echo $cacheLine >> "$PwD/series.cache"
+					echo "$cacheLine" >> "$PwD/series.cache"
 				fi
 				eecho -e "    TVDB:\tSeries found.\tID:    $series_id"
 				eecho -e "         \t             \tName:  $series_title_tvdb"

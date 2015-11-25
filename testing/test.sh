@@ -54,10 +54,16 @@ for the_file in "${!files[@]}"; do
 		ln -s "testing/$epg_file" "$path/$epg_file"
 	fi
 
-	result="$($path/saneRenamix.sh $srArgs -s -f "$the_file")";
+	result="$($path/saneRenamix.sh $srArgs -c -s -f "$the_file")";
 
 	if [ "$result" != "${files["$the_file"]}" ]; then
-		echo -e "\033[31m$the_file -> $result";
+		echo -e "\033[31m$the_file -> $result (nocache)";
+		echo "'$result' != '${files[$the_file]}'";
+	fi
+
+	result="$($path/saneRenamix.sh $srArgs -s -f "$the_file")";
+	if [ "$result" != "${files["$the_file"]}" ]; then
+		echo -e "\033[31m$the_file -> $result (cache)";
 		echo "'$result' != '${files[$the_file]}'";
 	else
 		if [ -L $path/$epg_file ]; then				# We have created it above

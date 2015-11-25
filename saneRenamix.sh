@@ -29,6 +29,7 @@ apikey="2C9BB45EFB08AD3B"
 productname="SaneRename for OTR (ALPHA) v0.4"
 lang="de"
 debug=false
+cache=true
 
 
 ##########
@@ -62,10 +63,12 @@ wget_running=false;
 
 # Parse the parameters
 function funcParam {
-	while getopts "df:l:s" optval; do
+	while getopts "dcf:l:s" optval; do
 		case $optval in
 			"d")					# Enable debugging
 				debug=true;;
+			"c")					# Disable series ID cache
+				cache=false;;
 			"f")					# Path to file
 				path="$OPTARG";;
 			"s")					# Silent switch
@@ -84,8 +87,9 @@ function funcParam {
 						exit 2;;
 				esac;;
 			"?")					# Help
-				echo "Usage: $0 -f pathToAvi [-s] [-l LANG]"
+				echo "Usage: $0 -f pathToAvi [-c] [-s] [-l LANG]"
 				echo
+				echo "-c disables the series ID cache on the local drive"
 				echo "-s makes this script to only output the filename"
 				echo "-l lets you search TheTVDB in a different language"
 				exit;;
@@ -178,7 +182,7 @@ function funcConvertName {
 function funcGetSeriesId {
 	if $debug; then echo -e "\033[36mfuncGetSeriesId\033[37m"; fi;
 	local tmp;
-	if [ -f "$PwD/series.cache" ]; then								# Search the series cache
+	if $cache && [ -f "$PwD/series.cache" ]; then					# Search the series cache
 		funcGetSeriesIdFromCache "$file_title"
 		if [ -z "$series_id" ]; then								# and search the cache with translation
 			funcConvertName "$file_title"
@@ -233,6 +237,7 @@ function funcGetSeriesIdFromTvdb {
 	local title;
 	local tmp;
 	local lastChance;
+	local cacheLine;
 	title="$1";
 	lastChance="$2";
 
@@ -279,7 +284,15 @@ function funcGetSeriesIdFromTvdb {
 			series_alias=${series_alias#*>}
 
 			if [ -n "$series_id" -a -n "$series_title_tvdb" ]; then
-				echo "$file_title|_|$series_title_tvdb|#|$series_id" >> "$PwD/series.cache"
+				cacheLine="$file_title|_|$series_title_tvdb|#|$series_id"
+				if [ -f "$PwD/series.cache" ]; then
+					tmp="$(grep "$cacheLine" "$PwD/series.cache")"
+				else
+					tmp=
+				fi
+				if [ -z "$tmp" ]; then
+					echo $cacheLine >> "$PwD/series.cache"
+				fi
 				eecho -e "    TVDB:\tSeries found.\tID:    $series_id"
 				eecho -e "         \t             \tName:  $series_title_tvdb"
 			fi

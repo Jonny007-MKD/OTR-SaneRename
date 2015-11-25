@@ -1,6 +1,7 @@
 #!/bin/bash
 
-#srArgs="-d"
+# use first parameter to add parameters for sanerenamix
+srArgs="$1"
 
 declare -A files
 
@@ -52,13 +53,6 @@ for the_file in "${!files[@]}"; do
 
 	if ! [ -f $path/$epg_file ]; then				# Create EPG file if neccessary
 		ln -s "testing/$epg_file" "$path/$epg_file"
-	fi
-
-	result="$($path/saneRenamix.sh $srArgs -c -s -f "$the_file")";
-
-	if [ "$result" != "${files["$the_file"]}" ]; then
-		echo -e "\033[31m$the_file -> $result (nocache)";
-		echo "'$result' != '${files[$the_file]}'";
 	fi
 
 	result="$($path/saneRenamix.sh $srArgs -s -f "$the_file")";

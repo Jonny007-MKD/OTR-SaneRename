@@ -313,12 +313,12 @@ function funcGetEPG {
 	# Download OTR EPG data and search for series and time
 	wget_file="$PwD/epg-${file_date}.csv"
 	if [ -f "$wget_file" ]; then
-		wget_file_date=$(stat --format=%Y "$wget_file")
+		wget_file_date=$(stat --format=%Z "$wget_file")
 		if [ $(( $(date +%s) - $wget_file_date)) -gt $((60*60*24*7*2)) ]; then		# if file is older than 2 weeks
-			#echo "Deleting file with timestamp $wget_file_date"
+			if $debug; then echo "Deleting file with timestamp $wget_file_date ($wget_file)"; fi;
 			rm "$wget_file"
 		elif [ $(stat --format=%s "$wget_file") -eq 0 ]; then						# if file is empty
-			#echo "Deleting file with size $(stat --format=%s $wget_file)"
+			if $debug; then echo "Deleting empty file $wget_file"; fi;
 			rm "$wget_file"
 		fi
 	fi
@@ -389,10 +389,12 @@ function funcDownloadEpisodesFile {
 	if $debug; then echo -e "\033[36mfuncDownloadEpisodesFile\033[37m"; fi;
 	wget_file="$PwD/episodes-${series_id}-${langCurrent}.xml"
 	if [ -f "$wget_file" ]; then
-		wget_file_date=$(stat --format=%Y "$wget_file")
-		if [ $(( $(date +%s) - $wget_file_date)) -gt $(( 60*60*24*7*2 )) ]; then		# if file is older than 2 weeks
+		wget_file_date=$(stat --format=%Z "$wget_file")
+		if [ $(( $(date +%s) - $wget_file_date)) -gt $(( 60*60*24*2 )) ]; then		# if file is older than 2 days
+			if $debug; then echo "Deleting file with timestamp $wget_file_date ($wget_file)"; fi;
 			rm "$wget_file"
 		elif [ $(stat --format=%s "$wget_file") -eq 0 ]; then							# if file is empty
+			if $debug; then echo "Deleting empty file $wget_file"; fi;
 			rm "$wget_file"
 		fi
 	fi

@@ -185,7 +185,7 @@ def getSeriesId(info: EpisodeInfo, args: dict):
 				for r in allResults:
 					if r["id"] in uniqueResults: continue
 					uniqueResults[r["id"]] = r
-				logging.debug(f'    found several series: {[ r["seriesName"] for r in uniqueResults.values()]}')
+				logging.debug(f'    found several series: {[ r["seriesName"]+" ("+str(r["id"])+")" for r in uniqueResults.values()]}')
 				sys.exit(ExitCode.SeveralPossibleSeriesFound)
 			if len(allIds) == 1:
 				r = allResults[0]

@@ -382,7 +382,6 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 			for i in range(len(words)):                # cut off one word at a time from the end
 				for j in range(len(words), i, -1):   # cut off one word at a time from the beginning
 					title = " ".join(words[i:j])
-					logging.debug(f' trying "{title}"')
 					found = searchFunc(title)
 					if found:
 						saveInfo(found)
@@ -402,19 +401,23 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 
 		logging.debug("  searching for a matching episode name (exactly)")
 		def searchByName(title: str):
+			logging.debug(f'    trying "{title}"')
 			return episodesByName.get(title, None)
 		found = doSearch(searchByName)
 		if found: return
 
 		logging.debug("  searching for a matching episode name more liberally")
-		episodesByName2 = { regex.sub("", e["episodeName"]): e for e in episodes }
+		episodesByName2 = { regex.sub("", e["episodeName"]).lower(): e for e in episodes }
 		def searchByName2(title: str):
-			return episodesByName2.get(regex.sub("", title), None)
+			title = regex.sub("", title).lower()
+			logging.debug(f'    trying "{title}"')
+			return episodesByName2.get(title, None)
 		found = doSearch(searchByName2)
 		if found: return
 
 		logging.debug("  searching for a matching description (startswith)")
 		def searchByOverview(overview: str):
+			logging.debug(f'    trying "{overview}"')
 			results = [ e for e in episodes if e["overview"] and e["overview"].startswith(overview) ]
 			if len(results) == 1: return results[0]
 			return None
@@ -423,7 +426,9 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 
 		logging.debug("  searching for a matching description more liberally (startswith)")
 		def searchByOverview2(overview: str):
-			results = [ e for e in episodes if e["overview"] and regex.sub("", e["overview"]).startswith(regex.sub(overview)) ]
+			overview = regex.sub("", overview).lower()
+			logging.debug(f'    trying "{overview}"')
+			results = [ e for e in episodes if e["overview"] and regex.sub("", e["overview"]).lower().startswith(overview) ]
 			if len(results) == 1: return results[0]
 			return None
 		found = doSearch(searchByOverview2)

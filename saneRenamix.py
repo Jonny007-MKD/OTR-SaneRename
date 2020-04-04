@@ -256,7 +256,11 @@ def getEpgData(info: EpisodeInfo):
 	def downloadEpg():
 		url = f"https://www.onlinetvrecorder.com/epg/csv/epg_{info.datetime.strftime('%Y_%m_%d')}.csv"
 		logging.debug(f"  downloadEpg(): {url}")
-		request = urllib.request.urlopen(url)
+		try:
+			request = urllib.request.urlopen(url)
+		except requests.exceptions.HTTPError as e:
+			logging.error(f"  failed: {e}")
+			sys.exit(ExitCode.DownloadingEPGFailed)
 		if request.getcode() == 200:
 			data = request.read().decode('latin-1')
 			with open(filepath, 'w') as f:

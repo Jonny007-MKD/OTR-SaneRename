@@ -170,12 +170,12 @@ def getSeriesId(info: EpisodeInfo, args: dict):
 				if not responses: continue
 				allResults.extend(responses)
 				for r in responses:
-					if r["seriesName"] == title3:
+					if r["seriesName"].strip() == title3:
 						logging.debug(f'    found {r["id"]} as {r["seriesName"]}')
 						return r["id"], r["seriesName"]
 				title3 = regex.sub("", title3).lower()
 				for r in responses:
-					if regex.sub("", r["seriesName"]).lower() == title3:
+					if regex.sub("", r["seriesName"]).lower().strip() == title3:
 						logging.debug(f'    found {r["id"]} as {r["seriesName"]}')
 						return r["id"], r["seriesName"]
 
@@ -372,7 +372,7 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 		info.season  = get(foundEpisode, ["airedSeason", "dvdSeason"])
 		info.episode = get(foundEpisode, ["airedEpisodeNumber", "dvdEpisodeNumber"])
 		info.episodeTitle = foundEpisode["episodeName"]
-		logging.debug(f'  found: S{info.season:02d}E{info.episode:02d}')
+		logging.info(f'  found: S{info.season:02d}E{info.episode:02d}')
 
 	d = info.description
 	def doSearch(searchFunc):
@@ -396,7 +396,7 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 	for i in range(2): # Try once from cache and once from TvDB
 		episodes = E.get()
 		if not episodes: continue# Nothing we can do about it :(
-		episodesByName = { e["episodeName"]: e for e in episodes }
+		episodesByName = { e["episodeName"].strip(): e for e in episodes }
 
 		if info.maybeEpisodeTitle and info.maybeEpisodeTitle in episodesByName:
 			saveInfo(episodesByName[info.maybeEpisodeTitle])
@@ -411,9 +411,9 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 		if found: return
 
 		logging.debug("  searching for a matching episode name more liberally")
-		episodesByName2 = { regex.sub("", e["episodeName"]).lower(): e for e in episodes }
+		episodesByName2 = { regex.sub("", e["episodeName"]).lower().strip(): e for e in episodes }
 		def searchByName2(title: str):
-			title = regex.sub("", title).lower()
+			title = regex.sub("", title).lower().strip()
 			logging.debug(f'    trying "{title}"')
 			return episodesByName2.get(title, None)
 		found = doSearch(searchByName2)
@@ -422,7 +422,7 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 		logging.debug("  searching for a matching description (startswith)")
 		def searchByOverview(overview: str):
 			logging.debug(f'    trying "{overview}"')
-			results = [ e for e in episodes if e["overview"] and e["overview"].startswith(overview) ]
+			results = [ e for e in episodes if e["overview"] and e["overview"].strip().startswith(overview) ]
 			if len(results) == 1: return results[0]
 			return None
 		found = doSearch(searchByOverview)
@@ -430,9 +430,9 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 
 		logging.debug("  searching for a matching description more liberally (startswith)")
 		def searchByOverview2(overview: str):
-			overview = regex.sub("", overview).lower()
+			overview = regex.sub("", overview).lower().strip()
 			logging.debug(f'    trying "{overview}"')
-			results = [ e for e in episodes if e["overview"] and regex.sub("", e["overview"]).lower().startswith(overview) ]
+			results = [ e for e in episodes if e["overview"] and regex.sub("", e["overview"]).lower().strip().startswith(overview) ]
 			if len(results) == 1: return results[0]
 			return None
 		found = doSearch(searchByOverview2)

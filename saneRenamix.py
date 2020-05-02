@@ -15,6 +15,7 @@ import os
 import csv
 import sys
 import requests
+import json
 from datetime import datetime
 try:
 	import urllib
@@ -54,19 +55,25 @@ def parseArgs():
 
 class EpisodeInfo:
 	def __init__(self):
-		self.season = None				# int
-		self.episode = None				# int
-		self.seriesName = None			# str
-		self.episodeTitle = None		# str
-		self.maybeEpisodeTitle = None	# str
-		self.datetime = None			# datetime
+		self.season = None				# int, number of Season
+		self.episode = None				# int, number of Episode in Season
+		self.seriesId = None			# int, TvDB ID of Series
+		self.seriesName = None			# str, Name of series. Taken from filename and replaced with the nice name from TvDB
+		self.episodeTitle = None		# str, Title of Episode. Taken from filename (if possible), replaced with name from TvDB
+		self.maybeEpisodeTitle = None	# str, Indicator whether the Episode title is a guess
+		self.datetime = None			# datetime, When the file was aired/recorded
 		self.sender = None				# str
-		self.description = None 		# str
+		self.description = None 		# str, Description from EPG data. Can be used to search the Episode
 		self.fileSuffix = None			# str
 
 	def __str__(self):
 		result = ""
-		if self.seriesName: result += self.seriesName + " "
+		if self.seriesName:
+			result += self.seriesName + " "
+			if self.seriesId: result += " (" + self.seriesId + ")"
+		else:
+			if self.seriesId: result += "Series#" + self.seriesId
+		if result: result += " "
 		if self.season:  result += f"S{self.season:02d}"
 		if self.episode: result += f"E{self.episode:02d}"
 		if result: result += " "
@@ -106,6 +113,40 @@ def analyzeFilename(filename: str):
 	logging.info(f"  found info: {result.seriesName}, {result.datetime}, {result.sender}, S{result.season}E{result.episode}, {result.fileSuffix}")
 	return result
 
+def readManualInfo(filename: str, info: EpisodeInfo):
+	logging.debug(f"readManualInfo({filename})")
+	file = os.path.join(workingDir, "manual.json")
+	if not os.path.isfile(file): return
+	with open(file) as json_file:
+		try:
+			data = json.load(json_file)
+		except Exception as e:
+			logging.warn(f"  Cannot read JSON file: {e}")
+			return
+
+	parts = filename.split('.')
+	for i in range(len(parts), 3, -1):
+		filename2 = '.'.join(parts[0:i])
+		if filename2 in data:
+			data = data[filename2]
+			break
+	else:
+		logging.debug("  No data found")
+		return False
+
+	def get(keys: list):
+		for k in keys + [ k.lower() for k in keys ]:
+			if k in data: return data[k]
+		return None
+
+	series = get([ "Series" ])
+	if series:
+		if type(series) == int: info.seriesId = series
+		if type(series) == str: info.seriesName = series
+	if not info.season:  info.season  = get([ "Season",  "S" ])
+	if not info.episode: info.episode = get([ "Episode", "E" ])
+	return True
+
 def convertTitle(title: str, lang: str):
 	title = title.replace(" s ", "'s ")
 	if title.endswith(" s"): title = title[0:-2] + "'s"
@@ -132,11 +173,12 @@ def getSeriesId(info: EpisodeInfo, args: dict):
 			logging.debug(f"    pickle load failed: {e}")
 			return None
 
-	def fromCache(cache):
-		logging.debug(f"  fromCache()")
+	def fromCacheWithName(cache: dict, seriesName: str):
+		""" Return tuple (id, niceName) when series is found in Cache, otherwise (None, None) """
+		logging.debug(f"  fromCacheWithName({seriesName})")
 		if not cache: return (None, None)
 
-		words = info.seriesName.split(' ')
+		words = seriesName.split(' ')
 		for i in range(len(words), 0, -1):
 			title2 = " ".join(words[0:i])
 			titles = set([title2, convertTitle(title2, args.language)])
@@ -150,10 +192,24 @@ def getSeriesId(info: EpisodeInfo, args: dict):
 		logging.debug(f"    found nothing")
 		return (None, None)
 
-	def fromTvdb():
-		logging.debug(f"  fromTvdb()")
+	def fromCacheWithId(cache: dict, id: int):
+		""" Return nice series name when id is found in cache, otherwise None """
+		logging.debug(f"  fromCacheWithId({id})")
+		if not cache: return None
+		for key, value in cache.items():
+			if value[0] == id:
+				logging.debug(f"    found {value[1]}")
+				return value[1]
+		return None
 
-		words = info.seriesName.split(' ')
+	def fromTvdbWithName(name: str):
+		"""
+		Search TvDB for a series with the specified name (or a subset of it)
+		Return a tuple (SeriesID, Nice Name) if a unique result was found, otherwise exit.
+		"""
+		logging.debug(f"  fromTvdbWithName({name})")
+
+		words = name.split(' ')
 		regex = re.compile("[^a-zA-Z0-9 ]")
 		allResults = []
 		for i in range(len(words), 0, -1):
@@ -195,6 +251,20 @@ def getSeriesId(info: EpisodeInfo, args: dict):
 		logging.debug(f"    nothing found")
 		sys.exit(ExitCode.SeriesNotFoundInTvDB)
 
+	def fromTvdbWithId(id: int):
+		logging.debug(f"  fromTvdbWithId({id})")
+		"""
+		Return the nice series name from TvDB.
+		If the series doesn't exist, exit.
+		"""
+		try:
+			series = tvdb.series.Series(id, language=args.language).info()
+			logging.debug(f"    found {series['seriesName']}")
+			return series["seriesName"]
+		except Exception as e:
+			logging.error(f"    Exception: {e}")
+			sys.exit(ExitCode.SeriesNotFoundInTvDB)
+
 	def writeCache(id: int, names: list, cache: dict):
 		if args.nocache: return
 		logging.debug(f"  writeCache({id}, {names})")
@@ -226,27 +296,36 @@ def getSeriesId(info: EpisodeInfo, args: dict):
 
 
 
-	# Load good series name. First from cache, then from TvDB
-	cache = loadCache()
-	(id, niceName) = fromCache(cache)
-	if id:
-		checkWhetherSeriesNameContainsEpisodeName(niceName)
-	else:
-		(id, niceName) = fromTvdb()
+	# ID already known (probably input from user), so load series name
+	if info.seriesId:
+		cache = loadCache()
+		niceName = fromCacheWithId(cache, info.seriesId)
+		if not niceName:
+			niceName = fromTvdbWithId(info.seriesId)
+		if niceName:
+			writeCache(info.seriesId, [ info.seriesName, niceName ], cache)
+			info.seriesName = niceName
+		return	
+
+	# Load good series name and id. First from cache, then from TvDB
+	if not info.seriesId:
+		cache = loadCache()
+		(id, niceName) = fromCacheWithName(cache, info.seriesName)
 		if id:
-			names = [ niceName ]
-			thirdName = checkWhetherSeriesNameContainsEpisodeName(niceName)
-			if thirdName: names.append(thirdName)
-			else: names.append(info.seriesName)
-			writeCache(id, names, cache)
+			checkWhetherSeriesNameContainsEpisodeName(niceName)
+		else:
+			(id, niceName) = fromTvdbWithName(info.seriesName)
+			if id:
+				names = [ niceName ]
+				thirdName = checkWhetherSeriesNameContainsEpisodeName(niceName)
+				if thirdName: names.append(thirdName)
+				else: names.append(info.seriesName)
+				writeCache(id, names, cache)
 
-	if not id: return None
+		if not id: return
+		else: info.seriesName = niceName
 
-	if id:
-		info.seriesName = niceName
-
-
-	return id
+	info.seriesId = id
 
 def getEpgData(info: EpisodeInfo):
 	logging.debug("getEpgData()")
@@ -306,10 +385,10 @@ def getEpgData(info: EpisodeInfo):
 		logging.debug("  set: {info.description}")
 
 class Episodes:
-	def __init__(self, seriesID: int, args: dict):
-		self.seriesID = seriesID
+	def __init__(self, seriesId: int, args: dict):
+		self.seriesId = seriesId
 		self.args = args
-		self.path = os.path.join(workingDir, f"episode-{seriesID}.cache")
+		self.path = os.path.join(workingDir, f"episode-{seriesId}.cache")
 		self.fromCache = None
 
 	def _loadCache(self):
@@ -328,7 +407,7 @@ class Episodes:
 		logging.debug(f"  fromTvdb()")
 
 		try:
-			episodes = tvdb.series.Series_Episodes(self.seriesID, language=self.args.language).all()
+			episodes = tvdb.series.Series_Episodes(self.seriesId, language=self.args.language).all()
 			return episodes
 		except Exception as e:
 			logging.error(f"    Exception: {e}")
@@ -355,12 +434,12 @@ class Episodes:
 		return episodes
 
 
-def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
+def getEpisodeTitleFromEpgData(info: EpisodeInfo, args: dict):
 	logging.debug(f"getEpisodeTitleFromEpgData()")
 	if not info.description:
 		logging.debug(f"  no description")
 		return # Nothing we can do about it :(
-	E = Episodes(seriesID, args)
+	E = Episodes(info.seriesId, args)
 	regex = re.compile("[^a-zA-Z0-9 ]")
 
 	def get(dct: dict, keys: list):
@@ -396,7 +475,7 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 	for i in range(2): # Try once from cache and once from TvDB
 		episodes = E.get()
 		if not episodes: continue# Nothing we can do about it :(
-		episodesByName = { e["episodeName"].strip(): e for e in episodes }
+		episodesByName = { e["episodeName"].strip(): e for e in episodes if e is not None and e["episodeName"] }
 
 		if info.maybeEpisodeTitle and info.maybeEpisodeTitle in episodesByName:
 			saveInfo(episodesByName[info.maybeEpisodeTitle])
@@ -411,7 +490,7 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 		if found: return
 
 		logging.debug("  searching for a matching episode name more liberally")
-		episodesByName2 = { regex.sub("", e["episodeName"]).lower().strip(): e for e in episodes }
+		episodesByName2 = { regex.sub("", e["episodeName"]).lower().strip(): e for e in episodes if e is not None }
 		def searchByName2(title: str):
 			title = regex.sub("", title).lower().strip()
 			logging.debug(f'    trying "{title}"')
@@ -422,7 +501,7 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 		logging.debug("  searching for a matching description (startswith)")
 		def searchByOverview(overview: str):
 			logging.debug(f'    trying "{overview}"')
-			results = [ e for e in episodes if e["overview"] and e["overview"].strip().startswith(overview) ]
+			results = [ e for e in episodes if e is not None and e["overview"] and e["overview"].strip().startswith(overview) ]
 			if len(results) == 1: return results[0]
 			return None
 		found = doSearch(searchByOverview)
@@ -432,7 +511,7 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 		def searchByOverview2(overview: str):
 			overview = regex.sub("", overview).lower().strip()
 			logging.debug(f'    trying "{overview}"')
-			results = [ e for e in episodes if e["overview"] and regex.sub("", e["overview"]).lower().strip().startswith(overview) ]
+			results = [ e for e in episodes if e is not None and e["overview"] and regex.sub("", e["overview"]).lower().strip().startswith(overview) ]
 			if len(results) == 1: return results[0]
 			return None
 		found = doSearch(searchByOverview2)
@@ -440,9 +519,9 @@ def getEpisodeTitleFromEpgData(info: EpisodeInfo, seriesID: int, args: dict):
 
 
 
-def getEpisodeTitleFromTvdb(info: EpisodeInfo, seriesID: int, args: dict):
+def getEpisodeTitleFromTvdb(info: EpisodeInfo, args: dict):
 	logging.debug("getEpisodeTitleFromTvdb()")
-	episodes = Episodes(seriesID, args).get()
+	episodes = Episodes(info.seriesId, args).get()
 	if not episodes: return # Nothing we can do :(
 
 	def get(dct: dict, keys: list):
@@ -461,6 +540,7 @@ def getEpisodeTitleFromTvdb(info: EpisodeInfo, seriesID: int, args: dict):
 def printResult(info: EpisodeInfo):
 	if info.seriesName and info.season and info.episode:
 		episodeTitle = info.episodeTitle.replace(' ', '.') if info.episodeTitle else ""
+		episodeTitle = episodeTitle.replace('?', '')		# Remove ? because Samba doesn't like them
 		print(f"{info.seriesName.replace(' ', '.')}..S{info.season:02d}E{info.episode:02d}..{episodeTitle}.{info.fileSuffix}")
 		sys.exit(0)
 	else:
@@ -471,12 +551,14 @@ if __name__ == '__main__':
 	logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(message)s")
 	args = parseArgs()
 	info = analyzeFilename(args.file)
-	id = getSeriesId(info, args)
-	if not id: sys.exit(ExitCode.SeriesNotFoundInTvDB)
+	manual = readManualInfo(args.file, info)
+	if manual or not info.seriesId or not info.seriesName:
+		getSeriesId(info, args)
+	if not info.seriesId: sys.exit(ExitCode.SeriesNotFoundInTvDB)
 	if not info.season or not info.episode:
 		getEpgData(info)
-		getEpisodeTitleFromEpgData(info, id, args)
+		getEpisodeTitleFromEpgData(info, args)
 	if not info.episodeTitle:
-		getEpisodeTitleFromTvdb(info, id, args)
+		getEpisodeTitleFromTvdb(info, args)
 	printResult(info)
 

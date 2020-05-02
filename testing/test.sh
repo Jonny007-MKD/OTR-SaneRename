@@ -23,6 +23,8 @@ files=(
 	["Irene_Huss_Kripo_Goeteborg_Der_im_Dunkeln_wacht_S02E01_15.08.08_22-55_ard_90_TVOON_DE.mpg.HQ.avi"]="Irene.Huss,.Kripo.Göteborg..S02E01..Der.im.Dunkeln.wacht.mpg.HQ.avi"
 # Difficult search for series
 	["Ein_Fall_fuer_TKKG_S01E01_15.11.16_13-20_kika_20_TVOON_DE.mpg.avi"]="Ein.Fall.für.TKKG..S01E01..Das.leere.Grab.im.Moor.mpg.avi"
+# Take Season and Episode info from manual.json
+	["Die_Bruecke_Transit_in_den_Tod_18.09.22_00-45_zdf_115_TVOON_DE.mpg.HD.avi.otrkey"]="Die.Brücke.–.Transit.in.den.Tod..S01E01..Teil.1.mpg.HD.avi.otrkey"
 );
 
 if [ -f test.sh ]; then
@@ -38,6 +40,10 @@ fi
 
 function finish {
 	pushd $path
+	# Restore manual.json
+	if [ -f "manual.json.orig" ]; then
+		mv "manual.json.orig" "manual.json"
+	fi
 	# Restore *.cache
 	for f in `ls *.cache.orig`; do
 		mv "$f" "${f::-5}"
@@ -48,6 +54,11 @@ trap finish EXIT
 
 function init {
 	pushd $path
+	# Backup and replace manual.json
+	if [ -f "$path/manual.json" ]; then
+		mv "$path/manual.json" "$path/manual.json.orig"
+	fi
+	cp "$(dirname $0)/manual.json" "$path/manual.json"
 	# Remove caches
 	for f in `ls *.cache`; do
 		mv "$f" "$f.orig"

@@ -33,37 +33,63 @@ fi
 
 if [ ! -f "$path/saneRenamix.py" ]; then
 	echo "saneRenamix.py not found!" >&2
+	exit 1
 fi
 
+function finish {
+	pushd $path
+	# Restore *.cache
+	for f in `ls *.cache.orig`; do
+		mv "$f" "${f::-5}"
+	done
+	popd
+}
+trap finish EXIT
 
-for the_file in "${!files[@]}"; do
-	echo -e "\033[37m${the_file}";
+function init {
+	pushd $path
+	# Remove caches
+	for f in `ls *.cache`; do
+		mv "$f" "$f.orig"
+	done
+	popd
+}
 
-	file="${the_file//_/ }"
 
-	file_title=${file%% [0-9][0-9].*}						# Cut off everything after the title: date, hour, sender, ...
-	file_sender=${file##*-[0-9][0-9]}						# Cut off everything bevor the sender: title, date, time, ...
+function runTest {
+	for the_file in "${!files[@]}"; do
+		echo -e "\033[37m${the_file}";
 
-	file_date=${file%%$file_sender}							# Cut off the sender
-	file_date=${file_date##$file_title }					# Cut off the title, now we do have the date and time
-	file_time=${file_date##* }
-	file_date=${file_date%% *}
+		file="${the_file//_/ }"
 
-	epg_file="epg-$file_date.csv"
+		file_title=${file%% [0-9][0-9].*}						# Cut off everything after the title: date, hour, sender, ...
+		file_sender=${file##*-[0-9][0-9]}						# Cut off everything bevor the sender: title, date, time, ...
 
-	if ! [ -f $path/$epg_file ]; then				# Create EPG file if neccessary
-		ln -s "testing/$epg_file" "$path/$epg_file"
-	fi
+		file_date=${file%%$file_sender}							# Cut off the sender
+		file_date=${file_date##$file_title }					# Cut off the title, now we do have the date and time
+		file_time=${file_date##* }
+		file_date=${file_date%% *}
 
-	result="$(python3 $path/saneRenamix.py $srArgs -s -f "$the_file")";
-	if [ "$result" != "${files["$the_file"]}" ]; then
-		echo -e "\033[31m$the_file -> $result (cache)";
-		echo "'$result' != '${files[$the_file]}'";
-	else
-		if [ -L $path/$epg_file ]; then				# We have created it above
-			rm $path/$epg_file
+		epg_file="epg-$file_date.csv"
+
+		if ! [ -f $path/$epg_file ]; then				# Create EPG file if neccessary
+			ln -s "testing/$epg_file" "$path/$epg_file"
 		fi
-	fi
-	read -p "ok. next? "
-done;
 
+		result="$(python3 $path/saneRenamix.py $srArgs -s -f "$the_file")";
+		if [ "$result" != "${files["$the_file"]}" ]; then
+			echo -e "\033[31m$the_file -> $result (cache)";
+			echo "'$result' != '${files[$the_file]}'";
+		else
+			if [ -L $path/$epg_file ]; then				# We have created it above
+				rm $path/$epg_file
+			fi
+		fi
+		echo -ne "\033[37m"
+		read -p "ok. next? "
+	done;
+}
+
+init
+runTest
+runTest
